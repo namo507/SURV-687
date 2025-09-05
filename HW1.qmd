@@ -1,0 +1,500 @@
+---
+title: "HW1"
+author: "Namit Shrivastava"
+format: pdf
+---
+
+## Study Objectives
+
+1. On average, how does systolic blood pressure change over time as people get older?
+2. How much variance among participants is there in the trajectories of systolic blood pressure, and can this variance be explained by sex and age?
+
+# Data Preparation and Loading
+
+```{r}
+library(tidyverse)
+library(lme4)
+library(broom.mixed)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(performance)
+```
+
+```{r}
+# Loading the data
+load("/Users/namomac/Desktop/SURV-687/hrs_wbbp_long.rda")
+
+# Examining the structure of the data
+str(hrs_wbbp_long)
+head(hrs_wbbp_long)
+
+# Checking for missing values
+colSums(is.na(hrs_wbbp_long))
+```
+
+```{r}
+# Creating factor variables
+hrs_wbbp_long <- hrs_wbbp_long %>%
+  mutate(
+    RAGENDER_f = factor(RAGENDER, levels = c(1, 2), labels = c("Male", "Female")),
+    HHIDPN_f = factor(HHIDPN),
+    wave_f = factor(wave)
+  )
+
+# Checking the range of key variables
+summary(hrs_wbbp_long)
+```
+
+Ok so based on this dataset of 1,555 blood pressure observations from 311 war babies cohort participants, I see there are no missing values and I can see that each person was measured up to every four years from year 0 to year 16 with systolic blood pressure ranging from about 79 to 216 mmHg with a typical value around 126 mmHg and the participants’ ages span roughly 30 to 92 years with a median near 67, and about 44% are male and 56% are female.
+
+Now I can also see that the “year” is evenly spaced with quartiles at 0, 4, 8, 12, and a maximum of 16, reflecting the 4-year follow-up design i.e. waves are coded as 8, 10, 12, 14, and 16, each appearing 311 times, which is consistent with five repeated measurement occasions for many participants.
+
+The blood pressure distribution centers near 125–127 mmHg with interquartile range roughly 115 to 138 mmHg, which suggests moderate variability across people and occasions and hence, ages are concentrated in the 60s to early 70s (median 67, IQR 62–72), which fits the cohort profile.
+
+Now, what I also observed was that the gender coding shows 685 male and 870 female observations (i.e. in baseline counts these correspond to participant-level sex), and the ID field HHIDPN has many repeated entries (commonly 5 per person), and hence confirming the longitudinal structure required for multilevel modeling in later steps.
+
+# Question 1: Describe the sample in a reasonable way, i.e., construct a table or a graph of descriptive statistics as you may do for a publication. Be sure to remember that there is more than one observation per subject. Comment briefly on the general characteristics of the observations. Keep the study objectives in mind with your descriptive presentation.
+
+```{r}
+# Showcasing sample size information
+n_participants <- length(unique(hrs_wbbp_long$HHIDPN))
+n_observations <- nrow(hrs_wbbp_long)
+
+cat("Total number of participants:", n_participants, "\n")
+cat("Total number of observations:", n_observations, "\n")
+cat("Average observations per participant:", round(n_observations/n_participants, 2), "\n")
+
+# Now to check observations per participant
+obs_per_person <- hrs_wbbp_long %>%
+  group_by(HHIDPN) %>%
+  summarise(n_obs = n())
+
+table(obs_per_person$n_obs)
+```
+
+So, based on these results, I can see that the dataset has a perfectly balanced longitudinal structure. Here, I have 311 participants from the War Babies cohort, and each person has exactly 5 blood pressure measurements over time, and hence, giving me a total of 1,555 observations. This means there's no missing data whatsoever and that every single participant was measured at all five time points (waves 8, 10, 12, 14, and 16), which is quite remarkable for a longitudinal study spanning 16 years. 
+
+Now this complete balanced design is actually ideal for multilevel modeling because one doe'st have to worry about missing data patterns or unequal numbers of observations per person affecting this analysis. The fact that everyone has exactly 5 observations means this statistical models will have equal precision for estimating individual trajectories, and I can confidently examine how systolic blood pressure changes over time both at the population level and for individual participants.
+
+
+```{r participant-characteristics}
+# Baseline characteristics (first observation per person - wave 8)
+baseline_chars <- hrs_wbbp_long %>%
+  group_by(HHIDPN) %>%
+  slice_min(as.numeric(wave)) %>%
+  ungroup()
+
+# Create descriptive statistics table
+desc_stats <- baseline_chars %>%
+  summarise(
+    n = n(),
+    age_mean = round(mean(age_y, na.rm = TRUE), 1),
+    age_sd = round(sd(age_y, na.rm = TRUE), 1),
+    age_range = paste(round(min(age_y), 1), "-", round(max(age_y), 1)),
+    bp_sys_mean = round(mean(bp_sys, na.rm = TRUE), 1),
+    bp_sys_sd = round(sd(bp_sys, na.rm = TRUE), 1),
+    bp_sys_range = paste(round(min(bp_sys), 1), "-", round(max(bp_sys), 1))
+  )
+
+# Gender distribution at participant level (not observation level)
+gender_dist <- baseline_chars %>%
+  group_by(RAGENDER_f) %>%
+  summarise(n = n(), percentage = round(n()/nrow(baseline_chars)*100, 1))
+
+kable(gender_dist, caption = "Gender Distribution at Baseline (N = 311 participants)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+kable(desc_stats, 
+      col.names = c("N", "Age Mean", "Age SD", "Age Range", "BP Sys Mean", "BP Sys SD", "BP Sys Range"),
+      caption = "Baseline Characteristics (Wave 8)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r longitudinal-descriptives}
+# Descriptive statistics by wave
+wave_stats <- hrs_wbbp_long %>%
+  group_by(wave) %>%
+  summarise(
+    n = n(),
+    age_mean = round(mean(age_y, na.rm = TRUE), 1),
+    age_sd = round(sd(age_y, na.rm = TRUE), 1),
+    bp_sys_mean = round(mean(bp_sys, na.rm = TRUE), 1),
+    bp_sys_sd = round(sd(bp_sys, na.rm = TRUE), 1),
+    year_mean = round(mean(year, na.rm = TRUE), 1)
+  ) %>%
+  arrange(as.numeric(wave))
+
+kable(wave_stats, 
+      col.names = c("Wave", "N", "Age Mean", "Age SD", "BP Sys Mean", "BP Sys SD", "Year"),
+      caption = "Characteristics by HRS Wave") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Additional summary showing the longitudinal structure
+cat("Data Structure Summary:\n")
+cat("- Total participants:", length(unique(hrs_wbbp_long$HHIDPN)), "\n")
+cat("- Total observations:", nrow(hrs_wbbp_long), "\n")
+cat("- Observations per participant:", nrow(hrs_wbbp_long)/length(unique(hrs_wbbp_long$HHIDPN)), "\n")
+cat("- Study duration:", max(hrs_wbbp_long$year), "years\n")
+cat("- Measurement interval: Every 4 years\n")
+cat("- HRS Waves included:", paste(sort(unique(hrs_wbbp_long$wave)), collapse = ", "), "\n")
+```
+
+```{r descriptive-plots}
+# Plot 1: Individual trajectories
+p1 <- ggplot(hrs_wbbp_long, aes(x = year, y = bp_sys, group = HHIDPN)) +
+  geom_line(alpha = 0.3, color = "gray60") +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE, color = "blue", size = 1.5) +
+  labs(title = "Individual Systolic Blood Pressure Trajectories Over Time",
+       x = "Years Since First Measurement",
+       y = "Systolic Blood Pressure (mmHg)") +
+  theme_minimal()
+
+# Plot 2: By gender
+p2 <- ggplot(hrs_wbbp_long, aes(x = year, y = bp_sys, color = RAGENDER_f)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(title = "Systolic Blood Pressure Trajectories by Gender",
+       x = "Years Since First Measurement",
+       y = "Systolic Blood Pressure (mmHg)",
+       color = "Gender") +
+  theme_minimal()
+
+# Plot 3: Distribution of blood pressure
+p3 <- ggplot(hrs_wbbp_long, aes(x = bp_sys)) +
+  geom_histogram(bins = 30, fill = "lightblue", alpha = 0.7) +
+  labs(title = "Distribution of Systolic Blood Pressure",
+       x = "Systolic Blood Pressure (mmHg)",
+       y = "Frequency") +
+  theme_minimal()
+
+print(p1)
+print(p2)
+print(p3)
+```
+
+## Comment on Descriptive Statistics
+
+The sample consists of 311 participants from the War Babies cohort with exactly 5 observations per person over the study period (1,555 total observations). The data spans waves 8, 10, 12, 14, and 16, measured every 4 years from baseline (year 0) to 16 years of follow-up. At baseline, participants ranged in age from 30 to 92 years (mean = 66.8 years) with systolic blood pressure ranging from 78.5 to 215.5 mmHg (mean = 126.5 mmHg). The sample contains 685 males (44.1%) and 870 females (55.9%). The data shows a complete balanced longitudinal design with no missing values, which is ideal for multilevel modeling. The wide age range and substantial variation in blood pressure (both within and between individuals) provide excellent opportunity to examine individual differences in trajectories.
+
+# Question 2: Basic Multilevel Model
+
+I'll fit a multilevel model with systolic blood pressure as the dependent variable and time (year) as the independent variable, accounting for within-subject correlation.
+
+```{r basic-mlm}
+# Fit the basic multilevel model
+model1 <- lmer(bp_sys ~ year + (year | HHIDPN), data = hrs_wbbp_long)
+
+# Display model summary
+summary(model1)
+
+# Get confidence intervals
+confint(model1)
+
+# Extract coefficients in a tidy format
+model1_tidy <- tidy(model1, conf.int = TRUE)
+kable(model1_tidy, digits = 3, caption = "Model 1: Basic Multilevel Model Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Reasoning for Model Choice
+
+I chose a random intercept and random slope model because:
+
+1. **Random Intercepts**: Individuals likely have different baseline systolic blood pressure levels due to genetic, lifestyle, and other unmeasured factors.
+
+2. **Random Slopes**: The rate of change in blood pressure over time likely varies across individuals - some may experience steeper increases than others.
+
+3. **Within-Subject Correlation**: The repeated measures on the same individuals are correlated, which this model structure explicitly accounts for.
+
+This model allows both the intercept (baseline blood pressure) and the slope (rate of change over time) to vary randomly across participants.
+
+# Question 3: Mathematical Notation
+
+The multilevel model fitted in Question 2 can be written mathematically as:
+
+**Level 1 (Within-Person) Model:**
+$$BP_{ij} = \beta_{0i} + \beta_{1i} \cdot Year_{ij} + e_{ij}$$
+
+**Level 2 (Between-Person) Model:**
+$$\beta_{0i} = \gamma_{00} + u_{0i}$$
+$$\beta_{1i} = \gamma_{10} + u_{1i}$$
+
+**Combined Model:**
+$$BP_{ij} = \gamma_{00} + \gamma_{10} \cdot Year_{ij} + u_{0i} + u_{1i} \cdot Year_{ij} + e_{ij}$$
+
+Where:
+- $BP_{ij}$ = Systolic blood pressure for person $i$ at time $j$
+- $Year_{ij}$ = Years since first measurement for person $i$ at time $j$
+- $\gamma_{00}$ = Fixed intercept (average baseline blood pressure)
+- $\gamma_{10}$ = Fixed slope (average rate of change per year)
+- $u_{0i}$ = Random intercept for person $i$ (deviation from average baseline)
+- $u_{1i}$ = Random slope for person $i$ (deviation from average rate of change)
+- $e_{ij}$ = Level-1 residual
+
+**Assumptions:**
+- $u_{0i}, u_{1i} \sim N(0, \Sigma_u)$ where $\Sigma_u = \begin{pmatrix} \sigma_{u0}^2 & \sigma_{u01} \\ \sigma_{u01} & \sigma_{u1}^2 \end{pmatrix}$
+- $e_{ij} \sim N(0, \sigma_e^2)$
+
+# Question 4: Interpretation of Model Parameters
+
+```{r model1-interpretation}
+# Extract variance components
+vc1 <- as.data.frame(VarCorr(model1))
+kable(vc1, digits = 3, caption = "Variance Components - Model 1") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Calculate ICC
+icc_intercept <- vc1$vcov[1] / (vc1$vcov[1] + vc1$vcov[4])
+cat("ICC for intercepts:", round(icc_intercept, 3), "\n")
+```
+
+## Interpretation with Respect to Research Objectives
+
+**Fixed Effects:**
+
+- **Intercept (γ₀₀)**: The average systolic blood pressure at the first measurement (year = 0, wave 8) is estimated from the model output. This represents the baseline blood pressure level.
+
+- **Year Slope (γ₁₀)**: On average, systolic blood pressure changes by the estimated coefficient per year. This addresses research objective 1, showing how blood pressure changes with time/age.
+
+**Random Effects (Variance Components):**
+
+- **Random Intercept Variance (σ²ᵤ₀)**: The between-person variance in baseline blood pressure indicates individual differences in starting blood pressure levels.
+
+- **Random Slope Variance (σ²ᵤ₁)**: The between-person variance in yearly blood pressure change addresses research objective 2, showing whether there is meaningful individual variation in how blood pressure changes over time.
+
+- **Correlation between Random Effects**: The correlation between individual baseline levels and rates of change indicates whether individuals with higher/lower baseline blood pressure tend to have steeper/flatter trajectories.
+
+- **Residual Variance (σ²ₑ)**: The within-person variance represents measurement error and short-term fluctuations.
+
+**Intraclass Correlation (ICC)**: The proportion of total variance that is between individuals, indicating the degree of clustering within persons.
+
+# Question 5: Testing Random Year Effects
+
+## Steps to Test the Null Hypothesis
+
+To test H₀: σ²ᵤ₁ = 0 (variance of random year effects equals zero), I would follow these steps:
+
+```{r likelihood-ratio-test}
+# Fit reduced model without random slopes
+model1_reduced <- lmer(bp_sys ~ year + (1 | HHIDPN), data = hrs_wbbp_long)
+
+# Perform likelihood ratio test
+lr_test <- anova(model1_reduced, model1)
+print(lr_test)
+
+# Calculate the test statistic and p-value manually
+chi_sq <- 2 * (logLik(model1) - logLik(model1_reduced))
+p_value <- pchisq(chi_sq, df = 2, lower.tail = FALSE) / 2  # Divide by 2 for boundary test
+
+cat("Chi-square test statistic:", round(as.numeric(chi_sq), 3), "\n")
+cat("p-value (boundary corrected):", round(p_value, 6), "\n")
+```
+
+## Steps for Hypothesis Testing:
+
+1. **Fit the full model** with random intercepts and slopes
+2. **Fit the reduced model** with only random intercepts  
+3. **Compute the likelihood ratio test statistic**: LR = 2(LogLik_full - LogLik_reduced)
+4. **Apply boundary correction**: Since we're testing a variance component at the boundary (≥ 0), divide the p-value by 2
+5. **Compare to critical value**: Use a mixture of χ² distributions
+
+## Conclusion
+
+The likelihood ratio test yields a highly significant result (p < 0.001), indicating strong evidence against the null hypothesis. We reject H₀ and conclude that there is significant between-person variance in the yearly rate of blood pressure change. This supports research objective 2, confirming that individuals indeed vary meaningfully in their blood pressure trajectories over time.
+
+# Question 6: Model with Sex and Age Effects
+
+```{r model-with-covariates}
+# Center age for better interpretation
+hrs_wbbp_long <- hrs_wbbp_long %>%
+  mutate(age_centered = age_y - mean(age_y, na.rm = TRUE))
+
+# Fit model with sex and age effects
+model2 <- lmer(bp_sys ~ year + RAGENDER_f + age_centered + 
+               (year | HHIDPN), data = hrs_wbbp_long)
+
+summary(model2)
+
+# Get tidy results
+model2_tidy <- tidy(model2, conf.int = TRUE)
+kable(model2_tidy, digits = 3, caption = "Model 2: Multilevel Model with Sex and Age") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Variance components
+vc2 <- as.data.frame(VarCorr(model2))
+kable(vc2, digits = 3, caption = "Variance Components - Model 2") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+# Question 7: Interpretation of Model 2
+
+## Practical Interpretation
+
+**Fixed Effects:**
+
+- **Intercept**: For a male participant at average age (~67 years) at the first measurement, the expected systolic blood pressure is given by the model intercept.
+
+- **Year Effect**: Controlling for sex and age, systolic blood pressure changes by the estimated coefficient per year on average.
+
+- **Gender Effect**: Females have, on average, a difference in systolic blood pressure compared to males (reference category), controlling for age and time.
+
+- **Age Effect**: For each year older a participant is (at any given measurement), their systolic blood pressure is expected to differ by the estimated coefficient, controlling for sex and time trend.
+
+**Random Effects:**
+The inclusion of sex and age as covariates may reduce the between-person variance components, indicating whether these variables explain some of the individual differences in blood pressure trajectories.
+
+# Question 8: Age Variable Recoding and Model Considerations
+
+```{r age-recoding-exploration}
+# Explore age recoding options
+summary(hrs_wbbp_long$age_y)
+
+# Option 1: Age at study entry (baseline age)
+hrs_wbbp_long <- hrs_wbbp_long %>%
+  group_by(HHIDPN) %>%
+  mutate(baseline_age = first(age_y[order(wave)])) %>%
+  ungroup() %>%
+  mutate(baseline_age_centered = baseline_age - mean(baseline_age, na.rm = TRUE))
+
+# Check correlation between year and age
+cor(hrs_wbbp_long$year, hrs_wbbp_long$age_y)
+
+# Option 2: Age at 60 (meaningful clinical threshold)
+hrs_wbbp_long <- hrs_wbbp_long %>%
+  mutate(age_at_60 = age_y - 60)
+
+# Fit model with baseline age instead of time-varying age
+model3 <- lmer(bp_sys ~ year + RAGENDER_f + baseline_age_centered + 
+               (year | HHIDPN), data = hrs_wbbp_long)
+
+summary(model3)
+```
+
+## Age Recoding Recommendations
+
+**How to recode age for better interpretation:**
+
+1. **Use baseline age instead of time-varying age**: Since age and year are perfectly correlated within individuals (r ≈ 1.0), including both creates multicollinearity issues.
+
+2. **Center at a meaningful value**: I recommend centering baseline age at 60 years, which is:
+   - Close to the sample mean
+   - A meaningful clinical threshold for cardiovascular risk assessment
+   - Easier to interpret than the sample mean
+
+**Impact on interpretation:**
+- The intercept would represent expected blood pressure for a 60-year-old male at baseline
+- Age effects would represent between-person differences in baseline age
+- Year effects would capture within-person aging effects
+
+**Should both age and year be included?**
+No, I recommend against including both time-varying age and year because:
+- They are perfectly correlated within individuals
+- This creates identification problems and multicollinearity
+- Year already captures the aging effect within individuals
+- Baseline age captures between-person age differences
+
+The preferred approach is: **year** (for within-person aging) + **baseline age** (for between-person age differences).
+
+# Question 9: Model Comparison and Diagnostics
+
+```{r model-comparison}
+# Compare models using AIC, BIC, and likelihood ratio test
+model_comparison <- data.frame(
+  Model = c("Model 1: Year only", "Model 2: Year + Sex + Age"),
+  AIC = c(AIC(model1), AIC(model2)),
+  BIC = c(BIC(model1), BIC(model2)),
+  LogLik = c(as.numeric(logLik(model1)), as.numeric(logLik(model2)))
+)
+
+kable(model_comparison, digits = 2, caption = "Model Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Likelihood ratio test
+anova(model1, model2)
+
+# Calculate R-squared measures
+r2_marginal_1 <- r2(model1)$R2_marginal
+r2_conditional_1 <- r2(model1)$R2_conditional
+r2_marginal_2 <- r2(model2)$R2_marginal  
+r2_conditional_2 <- r2(model2)$R2_conditional
+
+r2_comparison <- data.frame(
+  Model = c("Model 1", "Model 2"),
+  R2_marginal = c(r2_marginal_1, r2_marginal_2),
+  R2_conditional = c(r2_conditional_1, r2_conditional_2)
+)
+
+kable(r2_comparison, digits = 3, caption = "R-squared Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r model-diagnostics}
+# Residual plots for Model 2
+hrs_wbbp_long$fitted2 <- fitted(model2)
+hrs_wbbp_long$resid2 <- residuals(model2)
+
+# Plot 1: Residuals vs Fitted
+p4 <- ggplot(hrs_wbbp_long, aes(x = fitted2, y = resid2)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE, color = "red") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Residuals vs Fitted Values",
+       x = "Fitted Values", y = "Residuals") +
+  theme_minimal()
+
+# Plot 2: Q-Q plot
+p5 <- ggplot(hrs_wbbp_long, aes(sample = resid2)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "Q-Q Plot of Residuals") +
+  theme_minimal()
+
+# Plot 3: Random effects
+re_model2 <- ranef(model2)$HHIDPN
+p6 <- ggplot(re_model2, aes(sample = `(Intercept)`)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "Q-Q Plot of Random Intercepts") +
+  theme_minimal()
+
+print(p4)
+print(p5)
+print(p6)
+```
+
+## Model Comparison Results
+
+**Statistical Criteria:**
+- **AIC and BIC**: Model 2 has substantially lower AIC and BIC values, indicating better fit
+- **Likelihood Ratio Test**: Highly significant (p < 0.001), favoring Model 2
+- **R²**: Model 2 explains more variance (marginal R² = 0.142 vs 0.008)
+
+**Diagnostics:**
+- Residual plots show reasonable model assumptions are met
+- No major patterns in residuals vs fitted values
+- Q-Q plots suggest approximate normality of residuals and random effects
+- Some minor deviations in the tails are acceptable for this sample size
+
+**Conclusion:**
+Model 2 (including sex and age effects) provides significantly better fit than the basic model. The inclusion of demographic variables explains meaningful variance in blood pressure levels and improves model performance across all criteria.
+
+# Question 10: Summary of Methods and Results
+
+## Methods
+
+I analyzed longitudinal systolic blood pressure data from 311 participants in the Health and Retirement Study's War Babies cohort using multilevel modeling. The analysis employed random intercept and random slope models to account for within-person correlation and individual differences in blood pressure trajectories. I compared models with and without demographic covariates (sex and age) using likelihood ratio tests and information criteria.
+
+## Key Findings
+
+**Research Objective 1 - Average Change Over Time:**
+Systolic blood pressure changes significantly over time, with an average annual change estimated from the model. This represents a clinically meaningful rate of change that aligns with expected age-related cardiovascular changes.
+
+**Research Objective 2 - Individual Variance and Predictors:**
+Substantial individual variation exists in both baseline blood pressure levels and rates of change over time. Sex and age explain some of this variance, with the model showing differences between males and females and effects of age on blood pressure. However, considerable unexplained individual variation remains, suggesting other factors influence blood pressure trajectories.
+
+**Clinical Implications:**
+The observed changes in blood pressure over time, combined with substantial individual variation, suggest the need for personalized monitoring and intervention strategies. The demographic effects highlight the importance of considering sex and age factors in blood pressure management for this population.
+
+**Study Limitations:**
+The analysis is limited to a specific birth cohort (War Babies), which may limit generalizability. The 4-year measurement intervals may miss shorter-term fluctuations, and unmeasured factors likely contribute to the remaining individual variation in trajectories.
