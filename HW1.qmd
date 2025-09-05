@@ -168,7 +168,7 @@ I think this kind of complete follow-up over such a long period is quite rare in
 Hence, this consistent structure means I can examine how blood pressure trajectories unfold over time from when participants were in their late 50s to their mid-70s, and I feel that I don't have to worry about missing data patterns complicating my multilevel models or creating bias in my results later on I guess.
 
 
-```{r descriptive-plots}
+```{r}
 # Plot 1: Individual trajectories
 p1 <- ggplot(hrs_wbbp_long, aes(x = year, y = bp_sys, group = HHIDPN)) +
   geom_line(alpha = 0.3, color = "gray60") +
@@ -201,28 +201,37 @@ print(p2)
 print(p3)
 ```
 
-## Comment on Descriptive Statistics
 
-The sample consists of 311 participants from the War Babies cohort with exactly 5 observations per person over the study period (1,555 total observations). The data spans waves 8, 10, 12, 14, and 16, measured every 4 years from baseline (year 0) to 16 years of follow-up. At baseline, participants ranged in age from 30 to 92 years (mean = 66.8 years) with systolic blood pressure ranging from 78.5 to 215.5 mmHg (mean = 126.5 mmHg). The sample contains 685 males (44.1%) and 870 females (55.9%). The data shows a complete balanced longitudinal design with no missing values, which is ideal for multilevel modeling. The wide age range and substantial variation in blood pressure (both within and between individuals) provide excellent opportunity to examine individual differences in trajectories.
 
-# Question 2: Basic Multilevel Model
+# Question 2: Fit a multilevel model with systolic blood pressure as the dependent variable and time (year) as the independent variable to explore how systolic blood pressure may have changed over time. Make sure to account for the within-subject correlation in observations on the dependent variable in the multilevel model that you are fitting. Be sure to clearly describe your reasoning.
 
-I'll fit a multilevel model with systolic blood pressure as the dependent variable and time (year) as the independent variable, accounting for within-subject correlation.
+Ok so now, I'll fit a multilevel model with systolic blood pressure as the dependent variable and time (year) as the independent variable, accounting for within-subject correlation.
 
-```{r basic-mlm}
-# Fit the basic multilevel model
+```{r}
+# Fitting the basic multilevel model
 model1 <- lmer(bp_sys ~ year + (year | HHIDPN), data = hrs_wbbp_long)
-
-# Display model summary
 summary(model1)
 
 # Get confidence intervals
 confint(model1)
+```
 
-# Extract coefficients in a tidy format
+Ok so the model did give me a convergence warning, but I see that the gradient value (0.00224931) is very close to the tolerance limit (0.002), so the results should still be reliable because I searched up online and this often happens with complex random effects models. From the fixed effects, I can see that the average baseline systolic blood pressure (at year 0) is about 125.6 mmHg, which aligns well with what I observed in my descriptive statistics. 
+
+The yearly change in blood pressure is estimated at 0.12 mmHg per year, though this effect is not statistically significant since t = 1.66, and the confidence interval includes zero (-0.02 to 0.25 mmHg per year). This suggests that while there might be a slight upward trend in blood pressure over time on average, it's quite small and not statistically distinguishable from no change at all.
+
+Now coming to the random effects, which interestingly show substantial individual variation. The random intercept variance (203.7) is much larger than the random slope variance (0.51), indicating that people differ much more in their baseline blood pressure levels than in their rates of change over time. The negative correlation (-0.58) between random intercepts and slopes suggests that people who start with higher blood pressure tend to have flatter trajectories over time, while those starting with lower blood pressure show slightly steeper increases.
+
+Hence, these findings, directly address my research objectives i.e., they show minimal average change over time with meaningful individual differences in both baseline levels and trajectories.
+
+```{r}
+# Extracting coefficients in a tidy format
 model1_tidy <- tidy(model1, conf.int = TRUE)
 kable(model1_tidy, digits = 3, caption = "Model 1: Basic Multilevel Model Results") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Checking model convergence
+cat("Model converged:", model1@optinfo$conv$opt == 0, "\n")
 ```
 
 ## Reasoning for Model Choice
