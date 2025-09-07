@@ -225,26 +225,48 @@ Now coming to the random effects, which interestingly show substantial individua
 Hence, these findings, directly address my research objectives i.e., they show minimal average change over time with meaningful individual differences in both baseline levels and trajectories.
 
 ```{r}
-# Extracting coefficients in a tidy format
 model1_tidy <- tidy(model1, conf.int = TRUE)
 kable(model1_tidy, digits = 3, caption = "Model 1: Basic Multilevel Model Results") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 
-# Checking model convergence
 cat("Model converged:", model1@optinfo$conv$opt == 0, "\n")
 ```
+```{r}
+variance_ci <- confint(model1)
+kable(variance_ci, digits = 3, caption = "Confidence Intervals for All Parameters") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+Ok so, looking at my model results, I can see that my multilevel model has converged successfully and I see some insights about blood pressure changes over time. From the fixed effects, I can see that the average baseline systolic blood pressure (at year 0) is 125.6 mmHg with a very narrow confidence interval (123.7-127.5 mmHg), which gives me confidence in this estimate and aligns perfectly with what I observed in my descriptive statistics. 
+
+The yearly change in blood pressure is estimated at 0.12 mmHg per year, but what's particularly interesting is that this effect is not statistically significant as the confidence interval ranges from -0.02 to 0.25 mmHg per year, which includes zero. This suggests that while there might be a slight upward trend in blood pressure over time on average, it's quite small and not statistically distinguishable from no change at all. 
+
+Now coming to what really stands out to me are the random effects, which show substantial individual variation. The random intercept standard deviation is 14.3 mmHg (confidence interval: 12.6-16.0), which is much larger than the random slope standard deviation of 0.72 mmHg (0.52-0.89). This tells me that people differ much more in their baseline blood pressure levels than in their rates of change over time. 
+
+The negative correlation of -0.58 between random intercepts and slopes is particularly fascinating as it suggests that people who start with higher blood pressure tend to have flatter trajectories over time, while those starting with lower blood pressure show slightly steeper increases.
 
 ## Reasoning for Model Choice
 
-I chose a random intercept and random slope model because:
+Now, the reason I chose a random intercept and random slope model:
 
-1. **Random Intercepts**: Individuals likely have different baseline systolic blood pressure levels due to genetic, lifestyle, and other unmeasured factors.
+**1. Random Intercepts show individual baseline differences**
+So, from my descriptive analysis, I observed that participants had baseline systolic blood pressure ranging from 83 to 192 mmHg, with substantial variation (SD = 19 mmHg). This wide range clearly indicates that individuals start with very different blood pressure levels due to genetic factors, lifestyle differences, medical history, and other unmeasured characteristics. Hence, a random intercept allows each person to have their own baseline level, which is essential for accurately modeling these individual differences.
 
-2. **Random Slopes**: The rate of change in blood pressure over time likely varies across individuals - some may experience steeper increases than others.
+**2. Random Slopes show individual trajectory differences**
+Now the research questions specifically ask about variance in trajectories, and from my preliminary analysis, I could see that some people's blood pressure remained stable while others showed increases or even decreases over time. So, a random slope allows each person to have their own rate of change over the 16-year period, which directly addresses my second research objective about individual variation in blood pressure trajectories.
 
-3. **Within-Subject Correlation**: The repeated measures on the same individuals are correlated, which this model structure explicitly accounts for.
+**3. Within-subject correlation structure**
+Since I have 5 repeated measurements on each person over 16 years, observations within the same individual are inherently correlated i.e. a person's blood pressure at year 4 is likely similar to their blood pressure at year 8. The random effects structure (both intercepts and slopes) creates an appropriate correlation structure that accounts for this dependency, ensuring that my standard errors and confidence intervals are correctly estimated.
 
-This model allows both the intercept (baseline blood pressure) and the slope (rate of change over time) to vary randomly across participants.
+**4. Addressing both research objectives:**
+This model specification directly addresses both of my research objectives simultaneously as the fixed effect of year answers how blood pressure changes on average over time (Objective 1), while the random slope variance quantifies individual differences in these trajectories (Objective 2). The random intercept captures baseline individual differences that might explain some of the trajectory variation.
+
+**5. Methodological appropriateness:**
+Given my a balanced design with no missing data, this model makes full use of all available information while appropriately handling the multilevel structure inherent in longitudinal data. So, it's more sophisticated than simple repeated measures ANOVA but still interpretable and directly relevant to my research questions.
+
+This model specification allows both the intercept (baseline blood pressure) and the slope (rate of change over time) to vary randomly across participants, providing the flexibility needed to capture the individual differences I observed in my descriptive analysis.
+
+
 
 # Question 3: Mathematical Notation
 
