@@ -312,23 +312,23 @@ These findings provide clear answers to both research objectives mentioned in th
 The fact that the random intercept variance is much larger than the random slope variance suggests that while people differ greatly in their baseline blood pressure, they are somewhat more similar in how their blood pressure changes with age.
 
 
-# Question 5: Testing Random Year Effects
+# Question 5: Briefly describe the steps that one would use to test the null hypothesis that the variance of random year effects is equal to zero, including the computation of the p-value for this test. What is the conclusion of this test as it applies to the model fit in question 2 with respect to the research objectives?
 
 ## Steps to Test the Null Hypothesis
 
 To test H₀: σ²ᵤ₁ = 0 (variance of random year effects equals zero), I would follow these steps:
 
-```{r likelihood-ratio-test}
-# Fit reduced model without random slopes
+```{r}
+# Fitting reduced model without random slopes
 model1_reduced <- lmer(bp_sys ~ year + (1 | HHIDPN), data = hrs_wbbp_long)
 
-# Perform likelihood ratio test
+# Performing likelihood ratio test
 lr_test <- anova(model1_reduced, model1)
 print(lr_test)
 
-# Calculate the test statistic and p-value manually
+# Calculating the test statistic and p-value manually
 chi_sq <- 2 * (logLik(model1) - logLik(model1_reduced))
-p_value <- pchisq(chi_sq, df = 2, lower.tail = FALSE) / 2  # Divide by 2 for boundary test
+p_value <- pchisq(chi_sq, df = 1, lower.tail = FALSE) / 2  # df = 1, I will divide by 2 for boundary test
 
 cat("Chi-square test statistic:", round(as.numeric(chi_sq), 3), "\n")
 cat("p-value (boundary corrected):", round(p_value, 6), "\n")
@@ -336,39 +336,57 @@ cat("p-value (boundary corrected):", round(p_value, 6), "\n")
 
 ## Steps for Hypothesis Testing:
 
-1.  **Fit the full model** with random intercepts and slopes
-2.  **Fit the reduced model** with only random intercepts\
-3.  **Compute the likelihood ratio test statistic**: LR = 2(LogLik_full - LogLik_reduced)
-4.  **Apply boundary correction**: Since we're testing a variance component at the boundary (≥ 0), divide the p-value by 2
-5.  **Compare to critical value**: Use a mixture of χ² distributions
+1. **Fitting the full model** with random intercepts and slopes like `bp_sys ~ year + (year | HHIDPN)`
+2. **Fitting the reduced model** with only random intercepts like `bp_sys ~ year + (1 | HHIDPN)`
+3. **Computing the likelihood ratio test statistic** as LR = 2(LogLik_full - LogLik_reduced) = 24.57
+4. **Applying boundary correction** while testing a variance component at the boundary (≥ 0), I can divide the p-value by 2.
+5. **Comparing the critical value** using χ² distribution with df = 2 by testing both slope variance and correlation.
 
-## Conclusion
+## Results and Conclusion
 
-The likelihood ratio test yields a highly significant result (p \< 0.001), indicating strong evidence against the null hypothesis. We reject H₀ and conclude that there is significant between-person variance in the yearly rate of blood pressure change. This supports research objective 2, confirming that individuals indeed vary meaningfully in their blood pressure trajectories over time.
+Now looking at my likelihood ratio test results, I can see compelling evidence about individual variation in blood pressure trajectories as the test statistic of 24.57 is quite large, and even after applying the boundary correction, my p-value is essentially zero (< 0.000001).
 
-# Question 6: Model with Sex and Age Effects
+This actually provides overwhelming statistical evidence against the null hypothesis that there's no individual variation in rates of blood pressure change over time.
 
-```{r model-with-covariates}
-# Center age for better interpretation
+Now also I see that there is substantial improvement in model fit (AIC drops from 13,004 to 12,984) which confirms that allowing people to have their own individual trajectories actually improves how well the model explains the data. Hence, I can confidently reject H₀ and conclude that there is significant between-person variance in the yearly rate of blood pressure change.
+
+Also one can say that this result directly supports **Research objective 2**, which provides strong evidence that individuals indeed vary meaningfully in their blood pressure trajectories over time. 
+
+Some people seem to be showing steeper increase as others remain relatively stable, and from what I observed, the variation isn't just statistical noise but then it represents real, substantial individual differences that are crucial for understanding blood pressure patterns in this population.
+
+
+# Question 6: Modify the model to account for the sex and age effect on systolic blood pressure.
+
+```{r}
+# Centering age for better interpretation
 hrs_wbbp_long <- hrs_wbbp_long %>%
   mutate(age_centered = age_y - mean(age_y, na.rm = TRUE))
 
-# Fit model with sex and age effects
+# Fitting model with sex and age effects
 model2 <- lmer(bp_sys ~ year + RAGENDER_f + age_centered + 
                (year | HHIDPN), data = hrs_wbbp_long)
 
 summary(model2)
 
-# Get tidy results
+# Getting tidy results
 model2_tidy <- tidy(model2, conf.int = TRUE)
 kable(model2_tidy, digits = 3, caption = "Model 2: Multilevel Model with Sex and Age") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
-
+```
+```{r}
 # Variance components
 vc2 <- as.data.frame(VarCorr(model2))
 kable(vc2, digits = 3, caption = "Variance Components - Model 2") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
+
+Looking at these Model 2 results, I see changes when I include sex and age as covariates. The intercept is now 133.7 mmHg which represents the expected systolic blood pressure for a male participant of average age (about 67 years) at baseline. 
+
+So I see that the year effect has changed dramatically, it's now -0.64 mmHg per year and is statistically significant (t = -3.8), which represents a complete reversal from Model 1. When I control for sex and age, there's actually a slight decrease in blood pressure over time rather than an increase. The gender effect shows that females have, on average, 3.8 mmHg lower systolic blood pressure than males (95% CI: -6.7 to -0.9 mmHg), which aligns with cardiovascular research on sex differences. 
+
+Now, the age effect is quite strong as for each year, older a participant is at baseline, their blood pressure is 0.75 mmHg higher (95% CI: 0.45 to 1.05 mmHg), which makes physiological sense.
+
+Now including these covariates has reduced the random intercept variance from 203.7 to 170.7, which indicates sex and age can explain some between-person differences in baseline blood pressure, though substantial individual variation remains. So, this model provides a much clearer picture of how demographic factors influence blood pressure patterns in this population.
 
 # Question 7: Interpretation of Model 2
 
