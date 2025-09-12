@@ -410,7 +410,7 @@ The inclusion of sex and age as covariates has reduced the random intercept vari
 
 Now all these findings suggest that while demographic factors explain some variation in blood pressure patterns, but the individualized monitoring remains crucial. The negative time trend (decreasing BP over time) after controlling for demographics may reflect the benefits of modern medical management, while the persistent individual variation highlights the need for personalized approaches to blood pressure management in this aging population.
 
-# Question 8: Age Variable Recoding and Model Considerations
+# Question 8: How might one recode the age variable to make the parameters more interpretable? How would this recode change the interpretation of the parameters from 7? Should age and year both be included in the model (be sure to describe your reasoning)?
 
 ```{r age-recoding-exploration}
 # Explore age recoding options
@@ -437,23 +437,40 @@ model3 <- lmer(bp_sys ~ year + RAGENDER_f + baseline_age_centered +
 summary(model3)
 ```
 
-## Age Recoding Recommendations
+Right so, looking at the exploration of age recoding options, I can see some important patterns like the correlation between year and time-varying age is 0.76, which creates substantial multicollinearity concerns but isn't perfect correlation.
 
-**How to recode age for better interpretation:**
+When I fit Model 3 using baseline age instead of time-varying age, the results change meaningfully as the year effect returns to a small positive value (0.12 mmHg/year) similar to Model 1, which suggests that the negative year effect in Model 2 was largely due to age-time confounding.
 
-1.  **Use baseline age instead of time-varying age**: Since age and year are perfectly correlated within individuals (r ≈ 1.0), including both creates multicollinearity issues.
 
-2.  **Center at a meaningful value**: I recommend centering baseline age at 60 years, which is:
+Now onto how will I recode age for better interpretation:
 
-    -   Close to the sample mean
-    -   A meaningful clinical threshold for cardiovascular risk assessment
-    -   Easier to interpret than the sample mean
+1. **Using baseline age instead of time-varying age**
+Since age and year have a strong correlation (r = 0.76), using baseline age can separate between-person age differences from within-person aging effects, and hence reduce multicollinearity and improving interpretability.
 
-**Impact on interpretation:** - The intercept would represent expected blood pressure for a 60-year-old male at baseline - Age effects would represent between-person differences in baseline age - Year effects would capture within-person aging effects
+2. **Center at a meaningful value**
 
-**Should both age and year be included?** No, I recommend against including both time-varying age and year because: - They are perfectly correlated within individuals - This creates identification problems and multicollinearity - Year already captures the aging effect within individuals - Baseline age captures between-person age differences
+I will recommend centering baseline age at 60 years, which is:
+   - closer to the sample mean (59 years)
+   - a meaningful clinical threshold for cardiovascular risk assessment
+   - easier to interpret than the sample mean
 
-The preferred approach is: **year** (for within-person aging) + **baseline age** (for between-person age differences).
+Talking about the impact on interpretation:
+- The intercept here represents expected blood pressure for a 60-year-old male at baseline
+- Baseline age effects on the other hand represents between-person differences due to age at study entry
+- Year effects then captures within-person aging and period effects over the study duration
+
+Now to answer whether both age and year be included?
+So, based on my analysis, I will recommend using **baseline age** rather than time-varying age because:
+- Time-varying age and year are highly correlated (r = 0.76), which creates multicollinearity
+- Hence, this confounding makes it difficult to separate aging effects from period effects
+- Now, Baseline Age captures between-person age differences at study entry
+- Meanwhile Year captures within-person change over time (aging + period effects)
+- Therefore, the combination provides cleaner parameter interpretation
+
+**The preferred approach:** 
+`year` (for within-person change over time) + `baseline_age_centered` (for between-person age differences at study entry).
+
+This approach avoids the confounding issue while still allowing me to examine both how blood pressure changes over time within individuals and how baseline age differences affect blood pressure levels between individuals.
 
 # Question 9: Model Comparison and Diagnostics
 
