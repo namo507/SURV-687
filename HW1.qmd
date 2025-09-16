@@ -12,6 +12,7 @@ format: pdf
 # Data Preparation and Loading
 
 ```{r}
+#| output: false
 library(tidyverse)
 library(lme4)
 library(broom.mixed)
@@ -22,6 +23,10 @@ library(performance)
 ```
 
 ```{r}
+#| echo: false
+#| output: false
+#| warning: false
+#| message: false
 # Loading the data
 load("/Users/namomac/Desktop/SURV-687/hrs_wbbp_long.rda")
 
@@ -204,6 +209,8 @@ print(p3)
 Ok so now, I'll fit a multilevel model with systolic blood pressure as the dependent variable and time (year) as the independent variable, accounting for within-subject correlation.
 
 ```{r}
+#| warning: false
+#| message: false
 # Fitting the basic multilevel model
 model1 <- lmer(bp_sys ~ year + (year | HHIDPN), data = hrs_wbbp_long)
 summary(model1)
@@ -221,6 +228,7 @@ Now coming to the random effects, which interestingly show substantial individua
 Hence, these findings, directly address my research objectives i.e., they show minimal average change over time with meaningful individual differences in both baseline levels and trajectories.
 
 ```{r}
+#| echo: false
 model1_tidy <- tidy(model1, conf.int = TRUE)
 kable(model1_tidy, digits = 3, caption = "Model 1: Basic Multilevel Model Results") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
