@@ -204,6 +204,10 @@ print(p2)
 print(p3)
 ```
 
+Ok now looking at the individual trajectories, I see a wide spread in baseline systolic pressure (~80–200 mmHg) with an overall trend that barely changes on average as some people rise while others stay flat or decline, underscoring heterogeneity that justifies multilevel modeling. 
+Now by gender, females consistently sit below males and both groups follow relatively flat paths over time, which tells me gender belongs in the model. 
+The histogram on the other hand looks roughly normal around 125–130 mmHg with a slight right tail and a broad 80–220 mmHg range, reflecting substantial individual variation and supporting linear mixed-model assumptions.
+
 # Question 2: Fit a multilevel model with systolic blood pressure as the dependent variable and time (year) as the independent variable to explore how systolic blood pressure may have changed over time. Make sure to account for the within-subject correlation in observations on the dependent variable in the multilevel model that you are fitting. Be sure to clearly describe your reasoning.
 
 Ok so now, I'll fit a multilevel model with systolic blood pressure as the dependent variable and time (year) as the independent variable, accounting for within-subject correlation.
@@ -215,7 +219,7 @@ Ok so now, I'll fit a multilevel model with systolic blood pressure as the depen
 model1 <- lmer(bp_sys ~ year + (year | HHIDPN), data = hrs_wbbp_long)
 summary(model1)
 
-# Get confidence intervals
+# Geting confidence intervals
 confint(model1)
 ```
 
