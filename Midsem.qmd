@@ -21,20 +21,25 @@ summary(select(sust_eff, math, female, minority, grade, lowinc_cen))
 
 # Question 13
 
-Fit a multilevel model with `math` as the dependent variable, fixed effects for `female`, `grade`, `lowinc_cen`, and `minority`, and a random intercept for `schoolid`.
-
 ```{r q13-model}
 model13 <- lmer(math ~ female + grade + lowinc_cen + minority + (1 | schoolid), data = sust_eff)
 summary(model13)
 ```
 
--My interpretation of the fixed effects in plain English is based on the fitted estimates above (note that `grade` is not centered, so the intercept corresponds to grade = 0, which sits just below the observed range and should be viewed as an extrapolated baseline):
+**Intercept (–1.686)**
+This is the predicted math score for a baseline student i.e. a male, non-minority in grade 0 at a school whose low-income percentage is average (because lowinc_cen is centered). Now, although I think grade 0 isn’t an actual grade, but I am guessing this intercept anchors the scale for the other effects.
 
-- The intercept of `r round(fixef(model13)["(Intercept)"], 2)` represents the expected math score for a male, non-minority student in the extrapolated baseline grade at a school with average centered low-income percentage.
-- The coefficient for `female` (`r round(fixef(model13)["female"], 2)`) reflects how, on average, female students score relative to male students when grade, minority status, and school low-income percentage are held constant.
-- The `grade` estimate (`r round(fixef(model13)["grade"], 2)`) captures how much the expected math score changes with each additional grade level, holding other variables constant.
-- The `lowinc_cen` effect (`r round(fixef(model13)["lowinc_cen"], 2)`) quantifies how math scores change as the centered percentage of low-income students at a school increases by one unit.
-- The `minority` coefficient (`r round(fixef(model13)["minority"], 2)`) indicates the average difference in math scores between minority and non-minority students after accounting for the other predictors.
+**Female (+0.031)**
+Now, holding grade, minority status, and school composition constant, I estimate that girls score about 0.03 points higher than boys. That small positive difference isn’t statistically significant here as p value is around 0.17, so I can’t be confident this gender gap differs from zero.
+
+**Grade (+0.803)**
+Here, this shows that each additional grade level corresponds to an average increase of 0.80 points on the math scale, assuming gender, minority status, and school context stay the same. This large, highly significant effect reflects steady learning gains as students move through grades.
+
+**lowinc_cen (–0.008)**
+Ok so from what I can interpret, for each one‐unit increase in the centered percentage of low-income students (i.e., a school with one percentage-point more low-income peers than average), student math scores drop by about 0.008 points on average, all else equal. Hence, this small but significant negative association suggests schools with higher proportions of low-income students tend to have slightly lower math scores.
+
+**Minority (–0.399)**
+Now, after controlling for grade, gender, and school income composition, minority students score on average 0.40 points lower than non-minority students. Since, this difference is highly significant, so, it indicates a persistent achievement gap in this dataset.
 
 # Question 14
 
@@ -53,7 +58,30 @@ df_q14 <- model14_comp$Df[2] - model14_comp$Df[1]
 list(p_value = pvalue_q14, df = df_q14)
 ```
 
-The likelihood ratio test above produces a p-value of `r signif(pvalue_q14, 3)` on `r df_q14` degree(s) of freedom. I therefore `r ifelse(pvalue_q14 < 0.05, "reject", "do not reject")` the null hypothesis that the variance of the `minority` random slopes is zero. This decision guides which model I consider the better specification for subsequent questions.
+## Hypothesis Test
+
+So I conducted a likelihood-ratio test to evaluate whether there is significant between-school variability in the effect of minority status.
+
+### Hypotheses
+
+$$
+H_0: \sigma^2_{\text{minority}} = 0 \quad \text{(No between-school variability)} \\
+H_A: \sigma^2_{\text{minority}} > 0 \quad \text{(Presence of between-school variability)}
+$$
+
+### Test Results
+
+The test yielded the following statistics:
+
+$$
+\chi^2(2) = 51.01, \quad p \approx 8.4 \times 10^{-12}
+$$
+
+Since the p-value is much smaller than the conventional threshold of 0.05 ($p \ll 0.05$), I will **reject the null hypothesis**.
+
+### Interpretation
+
+This result provides strong evidence of significant between-school variability in the effect of minority status. In other words, the **minority achievement gap differs meaningfully across schools**, suggesting that school-level factors may influence how minority status affects academic outcomes.
 
 # Question 15
 
