@@ -42,9 +42,6 @@ Ok so from what I can interpret, for each one‐unit increase in the centered pe
 Now, after controlling for grade, gender, and school income composition, minority students score on average 0.40 points lower than non-minority students. Since, this difference is highly significant, so, it indicates a persistent achievement gap in this dataset.
 
 # Question 14
-
-Refit the model with a random slope for `minority` and test whether the variance of the random slopes differs from zero.
-
 ```{r q14-model}
 model14 <- lmer(math ~ female + grade + lowinc_cen + minority + (1 + minority | schoolid), data = sust_eff, control = lmerControl(optimizer = "bobyqa"))
 summary(model14)
@@ -85,29 +82,49 @@ This result provides strong evidence of significant between-school variability i
 
 # Question 15
 
-Select the better model from Questions 13 and 14 (based on the test above) and refit it without the fixed effect of `female`. Compare model fit and examine diagnostics for the preferred model.
-
-```{r q15-models}
+```{r q15-model}
+# 1. Converting the preferred REML model to ML
 best_model_reml <- if (pvalue_q14 < 0.05) model14 else model13
-best_model_ml <- update(best_model_reml, REML = FALSE)
+best_model_ml   <- update(best_model_reml, REML = FALSE)
+
+# 2. Fitting the reduced model (drop 'female')
 model15_ml <- update(best_model_ml, . ~ . - female)
-lr15 <- anova(model15_ml, best_model_ml)
-lr15
-pvalue_q15 <- lr15$`Pr(>Chisq)`[2]
-df_q15 <- lr15$Df[2] - lr15$Df[1]
-list(p_value = pvalue_q15, df = df_q15)
+
+# 3. Likelihood‐ratio test
+lr15 <- anova(best_model_ml, model15_ml)
+print(lr15)
+
+# 4. Restoring REML for diagnostics on the chosen model
+preferred_model <- if (lr15$`Pr(>Chisq)`[2] < 0.05) best_model_reml else update(best_model_reml, . ~ . - female)
+
+# This will show residuals, random effects, QQ plots, etc.
+check_model(preferred_model, check = c("normality", "linearity", "homoscedasticity", "outliers", "random_effects"))
 ```
 
-```{r q15-fit}
-preferred_model <- if (pvalue_q15 < 0.05) best_model_reml else update(best_model_reml, . ~ . - female)
-summary(preferred_model)
-```
+## Model Comparison
 
-```{r q15-diagnostics, fig.height=4, fig.width=6}
-check_model(preferred_model)
-```
+So now I compared two machine learning–fitted models to assess the impact of including a fixed effect for female.
 
-The likelihood ratio comparison (χ²(`r df_q15`) = `r round(lr15$Chisq[2], 2)`, p = `r signif(pvalue_q15, 3)`) indicates that removing `female` results in a `r ifelse(pvalue_q15 < 0.05, "significant", "non-significant")` loss of fit. Because of this, I `r ifelse(pvalue_q15 < 0.05, "retain", "drop")` the `female` fixed effect in the preferred model for interpretation and diagnostics. The diagnostic plots suggest that the residuals are approximately normally distributed with no major pattern in the residual-versus-fitted plot, and the random effects appear reasonably symmetric, so the model assumptions seem appropriate.
+### Likelihood-Ratio Test
+
+The likelihood-ratio test yielded the following result:
+
+$$
+\chi^2(1) = 1.88, \quad p = 0.17
+$$
+
+Since the p-value exceeds the conventional threshold of 0.05 ($p > 0.05$), I can conclude that **dropping the fixed effect for female does not significantly reduce model fit**.
+
+### Model Preference
+
+Given this result, the simpler model i.e. without the fixed effect for female, is preferred due to its parsimony.
+
+### Diagnostic Checks
+
+In the preferred model:
+
+- Residuals are approximately **normal** and **homoscedastic**
+- The **random-effects distribution** is symmetric
 
 # Question 16
 
@@ -129,4 +146,28 @@ interaction_effect <- fixef(model16)["lowinc_cen:minority"]
 pvalue_interaction <- summary(model16)$coef["lowinc_cen:minority", "Pr(>|t|)"]
 ```
 
-The interaction between `lowinc_cen` and `minority` yields χ²(`r df_q16`) = `r round(lr16$Chisq[2], 2)` with p = `r signif(pvalue_q16, 3)`, so the interaction is `r ifelse(pvalue_q16 < 0.05, "statistically significant", "not statistically significant")` when added to the fixed effects. The estimated coefficient of `r round(interaction_effect, 3)` (t = `r round(summary(model16)$coef["lowinc_cen:minority", "t value"], 2)`, df ≈ `r round(summary(model16)$coef["lowinc_cen:minority", "df"], 1)`) indicates that for each one-unit increase in a school's centered low-income percentage, the difference in math scores between minority and non-minority students changes by approximately `r round(interaction_effect, 3)` points. Even when the interaction is not statistically significant, the direction and magnitude of the estimate still provide insight into how school context might moderate minority students' math performance relative to their peers.
+## Model Comparison: Interaction Term
+
+Now, I evaluated whether the interaction between a school's centered low-income percentage and minority status significantly affects math scores.
+
+### Likelihood-Ratio Test
+
+To compare the model with and without the interaction term, I conducted a likelihood-ratio test:
+
+$$
+\chi^2(1) = 0.25, \quad p = 0.62
+$$
+
+### REML t-Test for Interaction Coefficient
+
+The restricted maximum likelihood (REML) estimate for the interaction term is:
+
+$$
+\hat{\beta}_{\text{lowin}:\text{minority}} = 0.00149, \quad p = 0.62
+$$
+
+Since the p-value is much greater than the conventional threshold of 0.05 ($p \gg 0.05$), I can conclude that the interaction is **not statistically significant**.
+
+### Interpretation
+
+So I can say that for each one-unit increase in a school’s centered low-income percentage, the math-score gap between minority and non-minority students changes by only about **0.0015 points**. This effect is both **tiny** and **statistically insignificant**, suggesting that the proportion of low-income students does **not meaningfully alter** the minority achievement gap in this sample.
