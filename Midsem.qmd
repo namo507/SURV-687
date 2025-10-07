@@ -82,7 +82,7 @@ Since the p-value is much smaller than the conventional threshold of 0.05 ($p \l
 
 ### Interpretation
 
-This result provides strong evidence of significant between-school variability in the effect of minority status. In other words, the **minority achievement gap differs meaningfully across schools**, suggesting that school-level factors may influence how minority status affects academic outcomes.
+This result provides strong evidence of significant between-school variability in the effect of minority status. In other words, the **minority achievement gap differs meaningfully across schools**, which I guess is suggesting that school-level factors may influence how minority status affects academic outcomes.
 
 # Question 15
 
@@ -109,7 +109,7 @@ check_model(preferred_model, check = c("normality",
 
 ## Model Comparison
 
-So now I compared two machine learning–fitted models to assess the impact of including a fixed effect for female.
+So now I compared two fitted models to assess the impact of including a fixed effect for female.
 
 ### Likelihood-Ratio Test
 
@@ -123,7 +123,7 @@ Since the p-value exceeds the conventional threshold of 0.05 ($p > 0.05$), I can
 
 ### Model Preference
 
-Given this result, the simpler model i.e. without the fixed effect for female, is preferred due to its parsimony.
+Given this result, occam's razor, the simpler model i.e. without the fixed effect for female, is preferred due to its parsimony.
 
 ### Diagnostic Checks
 
@@ -133,9 +133,6 @@ In the preferred model:
 - The **random-effects distribution** is symmetric
 
 # Question 16
-
-Refit the preferred model, adding the interaction between `lowinc_cen` and `minority`, and interpret whether the interaction explains variation in minority slopes across schools.
-
 ```{r q16-model}
 model16_ml <- update(best_model_ml, . ~ . + lowinc_cen:minority)
 lr16 <- anova(best_model_ml, model16_ml)
