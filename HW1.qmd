@@ -204,9 +204,7 @@ print(p2)
 print(p3)
 ```
 
-Ok now looking at the individual trajectories, I see a wide spread in baseline systolic pressure (~80–200 mmHg) with an overall trend that barely changes on average as some people rise while others stay flat or decline, underscoring heterogeneity that justifies multilevel modeling. 
-Now by gender, females consistently sit below males and both groups follow relatively flat paths over time, which tells me gender belongs in the model. 
-The histogram on the other hand looks roughly normal around 125–130 mmHg with a slight right tail and a broad 80–220 mmHg range, reflecting substantial individual variation and supporting linear mixed-model assumptions.
+Ok now looking at the individual trajectories, I see a wide spread in baseline systolic pressure (\~80–200 mmHg) with an overall trend that barely changes on average as some people rise while others stay flat or decline, underscoring heterogeneity that justifies multilevel modeling. Now by gender, females consistently sit below males and both groups follow relatively flat paths over time, which tells me gender belongs in the model. The histogram on the other hand looks roughly normal around 125–130 mmHg with a slight right tail and a broad 80–220 mmHg range, reflecting substantial individual variation and supporting linear mixed-model assumptions.
 
 # Question 2: Fit a multilevel model with systolic blood pressure as the dependent variable and time (year) as the independent variable to explore how systolic blood pressure may have changed over time. Make sure to account for the within-subject correlation in observations on the dependent variable in the multilevel model that you are fitting. Be sure to clearly describe your reasoning.
 
@@ -299,30 +297,21 @@ cat("ICC for intercepts:", round(icc_intercept, 3), "\n")
 
 Ok now looking at my variance components from Model 1, I can see some patterns that directly address both of my research objectives.
 
-**Fixed Effects results::**
-From my earlier analysis, I found that the average baseline systolic blood pressure (γ₀₀) is 125.6 mmHg, representing the expected blood pressure at year 0 for a typical participant. The fixed slope (γ₁₀) of 0.12 mmHg per year suggests a very modest average increase in blood pressure over time, though this wasn't statistically significant. This addresses the **1st Research objective** by showing that, on average, blood pressure changes are minimal over the 16-year period.
+**Fixed Effects results::** From my earlier analysis, I found that the average baseline systolic blood pressure (γ₀₀) is 125.6 mmHg, representing the expected blood pressure at year 0 for a typical participant. The fixed slope (γ₁₀) of 0.12 mmHg per year suggests a very modest average increase in blood pressure over time, though this wasn't statistically significant. This addresses the **1st Research objective** by showing that, on average, blood pressure changes are minimal over the 16-year period.
 
-**Random Effects in terms of Individual variation::**
-Now, also the variance components reveal substantial individual differences. The random intercept variance (σ²ᵤ₀ = 203.7) with a standard deviation of 14.3 mmHg tells me that individuals differ considerably in their baseline blood pressure levels. This means that about 95% of participants have baseline blood pressures within roughly ±28 mmHg of the average (125.6 ± 2×14.3 mmHg), spanning from about 97 to 154 mmHg which is a clinically meaningful range.
+**Random Effects in terms of Individual variation::** Now, also the variance components reveal substantial individual differences. The random intercept variance (σ²ᵤ₀ = 203.7) with a standard deviation of 14.3 mmHg tells me that individuals differ considerably in their baseline blood pressure levels. This means that about 95% of participants have baseline blood pressures within roughly ±28 mmHg of the average (125.6 ± 2×14.3 mmHg), spanning from about 97 to 154 mmHg which is a clinically meaningful range.
 
 The random slope variance (σ²ᵤ₁ = 0.51) with a standard deviation of 0.72 mmHg per year indicates that individuals also vary in their rates of change over time, though less dramatically than in their baseline levels. This directly addresses **Research objective 2** by confirming that there is meaningful individual variation in blood pressure trajectories. About 95% of individuals have annual changes ranging from approximately -1.3 to +1.6 mmHg per year around the population average.
 
-**Correlation between Random effects::**
-The correlation of -0.58 between random intercepts and slopes is particularly interesting as this negative correlation suggests that participants who start with higher blood pressure tend to have flatter (or even declining) trajectories over time, while those starting with lower blood pressure show steeper increases. This could reflect regression to the mean, ceiling effects, or possibly that people with initially high blood pressure receive more intensive medical management.
+**Correlation between Random effects::** The correlation of -0.58 between random intercepts and slopes is particularly interesting as this negative correlation suggests that participants who start with higher blood pressure tend to have flatter (or even declining) trajectories over time, while those starting with lower blood pressure show steeper increases. This could reflect regression to the mean, ceiling effects, or possibly that people with initially high blood pressure receive more intensive medical management.
 
-**Within-Person Variation::**
-Ok so, the residual variance (σ²ₑ = 162.4) with a standard deviation of 12.7 mmHg represents the within-person variation over time that isn't explained by the linear trajectory. This includes measurement error, short-term fluctuations, and any non-linear changes not captured by the linear model.
+**Within-Person Variation::** Ok so, the residual variance (σ²ₑ = 162.4) with a standard deviation of 12.7 mmHg represents the within-person variation over time that isn't explained by the linear trajectory. This includes measurement error, short-term fluctuations, and any non-linear changes not captured by the linear model.
 
-**Intraclass Correlation (ICC)::**
-The ICC of 0.557 tells me that about 56% of the total variation in blood pressure is between individuals rather than within individuals over time. This substantial ICC confirms that people maintain relatively consistent blood pressure levels relative to each other throughout the study period, supporting the need for multilevel modeling to account for this clustering.
+**Intraclass Correlation (ICC)::** The ICC of 0.557 tells me that about 56% of the total variation in blood pressure is between individuals rather than within individuals over time. This substantial ICC confirms that people maintain relatively consistent blood pressure levels relative to each other throughout the study period, supporting the need for multilevel modeling to account for this clustering.
 
-**Summary for Research Objectives:**
-These findings provide clear answers to both research objectives mentioned in the homework: 
-1) Average blood pressure changes are minimal over time (small fixed slope)
-2) But, there is substantial and statistically meaningful individual variation in both baseline levels and trajectories (significant random variance components). 
+**Summary for Research Objectives:** These findings provide clear answers to both research objectives mentioned in the homework: 1) Average blood pressure changes are minimal over time (small fixed slope) 2) But, there is substantial and statistically meaningful individual variation in both baseline levels and trajectories (significant random variance components).
 
 The fact that the random intercept variance is much larger than the random slope variance suggests that while people differ greatly in their baseline blood pressure, they are somewhat more similar in how their blood pressure changes with age.
-
 
 # Question 5: Briefly describe the steps that one would use to test the null hypothesis that the variance of random year effects is equal to zero, including the computation of the p-value for this test. What is the conclusion of this test as it applies to the model fit in question 2 with respect to the research objectives?
 
@@ -348,24 +337,23 @@ cat("p-value (boundary corrected):", round(p_value, 6), "\n")
 
 ## Steps for Hypothesis Testing:
 
-1. **Fitting the full model** with random intercepts and slopes like `bp_sys ~ year + (year | HHIDPN)`
-2. **Fitting the reduced model** with only random intercepts like `bp_sys ~ year + (1 | HHIDPN)`
-3. **Computing the likelihood ratio test statistic** as LR = 2(LogLik_full - LogLik_reduced) = 24.57
-4. **Applying boundary correction** while testing a variance component at the boundary (≥ 0), I can divide the p-value by 2.
-5. **Comparing the critical value** using χ² distribution with df = 2 by testing both slope variance and correlation.
+1.  **Fitting the full model** with random intercepts and slopes like `bp_sys ~ year + (year | HHIDPN)`
+2.  **Fitting the reduced model** with only random intercepts like `bp_sys ~ year + (1 | HHIDPN)`
+3.  **Computing the likelihood ratio test statistic** as LR = 2(LogLik_full - LogLik_reduced) = 24.57
+4.  **Applying boundary correction** while testing a variance component at the boundary (≥ 0), I can divide the p-value by 2.
+5.  **Comparing the critical value** using χ² distribution with df = 2 by testing both slope variance and correlation.
 
 ## Results and Conclusion
 
-Now looking at my likelihood ratio test results, I can see compelling evidence about individual variation in blood pressure trajectories as the test statistic of 24.57 is quite large, and even after applying the boundary correction, my p-value is essentially zero (< 0.000001).
+Now looking at my likelihood ratio test results, I can see compelling evidence about individual variation in blood pressure trajectories as the test statistic of 24.57 is quite large, and even after applying the boundary correction, my p-value is essentially zero (\< 0.000001).
 
 This actually provides overwhelming statistical evidence against the null hypothesis that there's no individual variation in rates of blood pressure change over time.
 
 Now also I see that there is substantial improvement in model fit (AIC drops from 13,004 to 12,984) which confirms that allowing people to have their own individual trajectories actually improves how well the model explains the data. Hence, I can confidently reject H₀ and conclude that there is significant between-person variance in the yearly rate of blood pressure change.
 
-Also one can say that this result directly supports **Research objective 2**, which provides strong evidence that individuals indeed vary meaningfully in their blood pressure trajectories over time. 
+Also one can say that this result directly supports **Research objective 2**, which provides strong evidence that individuals indeed vary meaningfully in their blood pressure trajectories over time.
 
 Some people seem to be showing steeper increase as others remain relatively stable, and from what I observed, the variation isn't just statistical noise but then it represents real, substantial individual differences that are crucial for understanding blood pressure patterns in this population.
-
 
 # Question 6: Modify the model to account for the sex and age effect on systolic blood pressure.
 
@@ -385,6 +373,7 @@ model2_tidy <- tidy(model2, conf.int = TRUE)
 kable(model2_tidy, digits = 3, caption = "Model 2: Multilevel Model with Sex and Age") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
+
 ```{r}
 # Variance components
 vc2 <- as.data.frame(VarCorr(model2))
@@ -392,9 +381,9 @@ kable(vc2, digits = 3, caption = "Variance Components - Model 2") %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-Looking at these Model 2 results, I see changes when I include sex and age as covariates. The intercept is now 133.7 mmHg which represents the expected systolic blood pressure for a male participant of average age (about 67 years) at baseline. 
+Looking at these Model 2 results, I see changes when I include sex and age as covariates. The intercept is now 133.7 mmHg which represents the expected systolic blood pressure for a male participant of average age (about 67 years) at baseline.
 
-So I see that the year effect has changed dramatically, it's now -0.64 mmHg per year and is statistically significant (t = -3.8), which represents a complete reversal from Model 1. When I control for sex and age, there's actually a slight decrease in blood pressure over time rather than an increase. The gender effect shows that females have, on average, 3.8 mmHg lower systolic blood pressure than males (95% CI: -6.7 to -0.9 mmHg), which aligns with cardiovascular research on sex differences. 
+So I see that the year effect has changed dramatically, it's now -0.64 mmHg per year and is statistically significant (t = -3.8), which represents a complete reversal from Model 1. When I control for sex and age, there's actually a slight decrease in blood pressure over time rather than an increase. The gender effect shows that females have, on average, 3.8 mmHg lower systolic blood pressure than males (95% CI: -6.7 to -0.9 mmHg), which aligns with cardiovascular research on sex differences.
 
 Now, the age effect is quite strong as for each year, older a participant is at baseline, their blood pressure is 0.75 mmHg higher (95% CI: 0.45 to 1.05 mmHg), which makes physiological sense.
 
@@ -404,21 +393,21 @@ Now including these covariates has reduced the random intercept variance from 20
 
 ## Practical Interpretation
 
-1) **Fixed Effects:**
+1)  **Fixed Effects:**
 
-- **Intercept (133.7 mmHg)**: So, for a male participant at average age (~67 years) at the first measurement (year 0), the expected systolic blood pressure is 133.7 mmHg. Hence, this represents a blood pressure level in the Stage 1 hypertension range according to current clinical guidelines.
+-   **Intercept (133.7 mmHg)**: So, for a male participant at average age (\~67 years) at the first measurement (year 0), the expected systolic blood pressure is 133.7 mmHg. Hence, this represents a blood pressure level in the Stage 1 hypertension range according to current clinical guidelines.
 
-- **Year Effect (-0.64 mmHg/year)**: Upon controlling for sex and age, systolic blood pressure decreases by 0.64 mmHg per year on average. Over the 16-year study period, this translates to approximately a 10 mmHg decrease, which is clinically meaningful and could represent the protective effects of medical interventions or lifestyle changes as people age.
+-   **Year Effect (-0.64 mmHg/year)**: Upon controlling for sex and age, systolic blood pressure decreases by 0.64 mmHg per year on average. Over the 16-year study period, this translates to approximately a 10 mmHg decrease, which is clinically meaningful and could represent the protective effects of medical interventions or lifestyle changes as people age.
 
-- **Gender Effect (-3.8 mmHg for females)**: So as observed, females have, on average, 3.8 mmHg lower systolic blood pressure compared to males, controlling for age and time. This difference is statistically significant and clinically relevant as it represents about a 3% reduction in systolic pressure that aligns with known cardiovascular differences between sexes in this age group.
+-   **Gender Effect (-3.8 mmHg for females)**: So as observed, females have, on average, 3.8 mmHg lower systolic blood pressure compared to males, controlling for age and time. This difference is statistically significant and clinically relevant as it represents about a 3% reduction in systolic pressure that aligns with known cardiovascular differences between sexes in this age group.
 
-- **Age Effect (+0.75 mmHg per year of age)**: For each year older a participant is at baseline, their systolic blood pressure is 0.75 mmHg higher throughout the study period. So, this means that a 70-year-old participant would have approximately 7.5 mmHg higher blood pressure than a 60-year-old participant, reflecting the well-established relationship between aging and cardiovascular health.
+-   **Age Effect (+0.75 mmHg per year of age)**: For each year older a participant is at baseline, their systolic blood pressure is 0.75 mmHg higher throughout the study period. So, this means that a 70-year-old participant would have approximately 7.5 mmHg higher blood pressure than a 60-year-old participant, reflecting the well-established relationship between aging and cardiovascular health.
 
-2) **Random Effects:**
+2)  **Random Effects:**
 
 The inclusion of sex and age as covariates has reduced the random intercept variance from 203.7 mmHg² in Model 1 to 170.7 mmHg² in Model 2, which indicates that these demographic variables explain about 16% of the between-person differences in baseline blood pressure levels. However, I see that substantial individual variation remains (SD = 13.1 mmHg for intercepts), suggesting that other unmeasured factors (genetics, lifestyle, comorbidities) continue to play important roles in determining individual blood pressure levels and trajectories.
 
-3) **Clinical Significance:**
+3)  **Clinical Significance:**
 
 Now all these findings suggest that while demographic factors explain some variation in blood pressure patterns, but the individualized monitoring remains crucial. The negative time trend (decreasing BP over time) after controlling for demographics may reflect the benefits of modern medical management, while the persistent individual variation highlights the need for personalized approaches to blood pressure management in this aging population.
 
@@ -453,34 +442,19 @@ Right so, looking at the exploration of age recoding options, I can see some imp
 
 When I fit Model 3 using baseline age instead of time-varying age, the results change meaningfully as the year effect returns to a small positive value (0.12 mmHg/year) similar to Model 1, which suggests that the negative year effect in Model 2 was largely due to age-time confounding.
 
-
 Now onto how will I recode age for better interpretation:
 
-1. **Using baseline age instead of time-varying age**
-Since age and year have a strong correlation (r = 0.76), using baseline age can separate between-person age differences from within-person aging effects, and hence reduce multicollinearity and improving interpretability.
+1.  **Using baseline age instead of time-varying age** Since age and year have a strong correlation (r = 0.76), using baseline age can separate between-person age differences from within-person aging effects, and hence reduce multicollinearity and improving interpretability.
 
-2. **Center at a meaningful value**
+2.  **Center at a meaningful value**
 
-I will recommend centering baseline age at 60 years, which is:
-   - closer to the sample mean (59 years)
-   - a meaningful clinical threshold for cardiovascular risk assessment
-   - easier to interpret than the sample mean
+I will recommend centering baseline age at 60 years, which is: - closer to the sample mean (59 years) - a meaningful clinical threshold for cardiovascular risk assessment - easier to interpret than the sample mean
 
-Talking about the impact on interpretation:
-- The intercept here represents expected blood pressure for a 60-year-old male at baseline
-- Baseline age effects on the other hand represents between-person differences due to age at study entry
-- Year effects then captures within-person aging and period effects over the study duration
+Talking about the impact on interpretation: - The intercept here represents expected blood pressure for a 60-year-old male at baseline - Baseline age effects on the other hand represents between-person differences due to age at study entry - Year effects then captures within-person aging and period effects over the study duration
 
-Now to answer whether both age and year be included?
-So, based on my analysis, I will recommend using **baseline age** rather than time-varying age because:
-- Time-varying age and year are highly correlated (r = 0.76), which creates multicollinearity
-- Hence, this confounding makes it difficult to separate aging effects from period effects
-- Now, Baseline Age captures between-person age differences at study entry
-- Meanwhile Year captures within-person change over time (aging + period effects)
-- Therefore, the combination provides cleaner parameter interpretation
+Now to answer whether both age and year be included? So, based on my analysis, I will recommend using **baseline age** rather than time-varying age because: - Time-varying age and year are highly correlated (r = 0.76), which creates multicollinearity - Hence, this confounding makes it difficult to separate aging effects from period effects - Now, Baseline Age captures between-person age differences at study entry - Meanwhile Year captures within-person change over time (aging + period effects) - Therefore, the combination provides cleaner parameter interpretation
 
-**The preferred approach:** 
-`year` (for within-person change over time) + `baseline_age_centered` (for between-person age differences at study entry).
+**The preferred approach:** `year` (for within-person change over time) + `baseline_age_centered` (for between-person age differences at study entry).
 
 This approach avoids the confounding issue while still allowing me to examine both how blood pressure changes over time within individuals and how baseline age differences affect blood pressure levels between individuals.
 
@@ -519,11 +493,9 @@ kable(r2_comparison, digits = 3, caption = "R-squared Comparison") %>%
 
 Right, so looking at my model comparison results, I can see a clear pattern that strongly favors Model 2 over the basic Model 1.
 
-Now from the statistical criteria, Model 2 has substantially better fit indicators as the AIC drops from 12,986 to 12,947 and the BIC similarly decreases, both indicating improved model performance when I include sex and age as covariates. 
-The likelihood ratio test also confirms this with a highly significant result (p < 0.001), providing strong statistical evidence that the additional parameters in Model 2 are justified.
+Now from the statistical criteria, Model 2 has substantially better fit indicators as the AIC drops from 12,986 to 12,947 and the BIC similarly decreases, both indicating improved model performance when I include sex and age as covariates. The likelihood ratio test also confirms this with a highly significant result (p \< 0.001), providing strong statistical evidence that the additional parameters in Model 2 are justified.
 
-Talking about the difference in explanatory power as the marginal R² (which here reflects variance explained by fixed effects alone) jumps dramatically from just 0.001 in Model 1 to 0.065 in Model 2. This means that while time alone explains virtually none of the blood pressure variation, adding sex and age increases the explained variance to about 6.5% which is a substantial improvement. 
-The conditional R² values are very similar between models (around 0.495-0.496), which makes sense because this reflects the total variance explained including random effects, and both models have the same random effects structure.
+Talking about the difference in explanatory power as the marginal R² (which here reflects variance explained by fixed effects alone) jumps dramatically from just 0.001 in Model 1 to 0.065 in Model 2. This means that while time alone explains virtually none of the blood pressure variation, adding sex and age increases the explained variance to about 6.5% which is a substantial improvement. The conditional R² values are very similar between models (around 0.495-0.496), which makes sense because this reflects the total variance explained including random effects, and both models have the same random effects structure.
 
 ```{r model-diagnostics}
 # Residual plots for Model 2
@@ -563,47 +535,31 @@ So the diagnostic plots show that Model 2 meets the key assumptions reasonably w
 
 ## Model Comparison Results
 
-**Statistical Criteria:** 
-- **AIC and BIC**: For this, the Model 2 has substantially lower AIC (12,947 vs 12,986) and BIC values, indicating better fit
-- **Likelihood Ratio Test**: Highly significant (p < 0.001), hence favoring Model 2  
+**Statistical Criteria:** - **AIC and BIC**: For this, the Model 2 has substantially lower AIC (12,947 vs 12,986) and BIC values, indicating better fit - **Likelihood Ratio Test**: Highly significant (p \< 0.001), hence favoring Model 2\
 - **R²**: Model 2 here explains dramatically more variance in fixed effects (marginal R² = 0.065 vs 0.001)
 
-**Diagnostics:** 
-- Residual plots show reasonable model assumptions are met
-- One can see no major patterns in residuals vs fitted values  
-- Q-Q plots suggest approximate normality of residuals and random effects
-- There are some minor deviations in the tails are acceptable for this sample size
+**Diagnostics:** - Residual plots show reasonable model assumptions are met - One can see no major patterns in residuals vs fitted values\
+- Q-Q plots suggest approximate normality of residuals and random effects - There are some minor deviations in the tails are acceptable for this sample size
 
-**Conclusion:** 
-Model 2 (including sex and age effects) provides significantly better fit than the basic model. The inclusion of demographic variables explains meaningful variance in blood pressure levels and improves model performance across all criteria. While the improvement in marginal R² from 0.001 to 0.065 might seem modest, it represents a 65-fold increase in explained variance by fixed effects, demonstrating the importance of demographic factors in understanding blood pressure patterns.
+**Conclusion:** Model 2 (including sex and age effects) provides significantly better fit than the basic model. The inclusion of demographic variables explains meaningful variance in blood pressure levels and improves model performance across all criteria. While the improvement in marginal R² from 0.001 to 0.065 might seem modest, it represents a 65-fold increase in explained variance by fixed effects, demonstrating the importance of demographic factors in understanding blood pressure patterns.
 
 # Question 10: Write a ½page summary of the methods and results of the above analyses regarding the study objectives.
 
 ## Methods
 
-So, I analyzed longitudinal systolic blood pressure data from 311 participants in the Health and Retirement Study's War Babies cohort using multilevel modeling approaches. My dataset had exceptional quality with exactly 5 measurements per person over 16 years (waves 8, 10, 12, 14, 16) and no missing data, creating a perfectly balanced design ideal for multilevel analysis. I employed random intercept and random slope models to account for within-person correlation and individual differences in blood pressure trajectories. 
-Then, my analysis progressed from a basic model with only time as a predictor to more complex models incorporating demographic covariates (sex and age). I compared models using likelihood ratio tests, AIC/BIC criteria, and R-squared measures, and carefully examined issues of multicollinearity between age and time variables.
+So, I analyzed longitudinal systolic blood pressure data from 311 participants in the Health and Retirement Study's War Babies cohort using multilevel modeling approaches. My dataset had exceptional quality with exactly 5 measurements per person over 16 years (waves 8, 10, 12, 14, 16) and no missing data, creating a perfectly balanced design ideal for multilevel analysis. I employed random intercept and random slope models to account for within-person correlation and individual differences in blood pressure trajectories. Then, my analysis progressed from a basic model with only time as a predictor to more complex models incorporating demographic covariates (sex and age). I compared models using likelihood ratio tests, AIC/BIC criteria, and R-squared measures, and carefully examined issues of multicollinearity between age and time variables.
 
 ## Key Findings and the Research Objective
 
-**Research Objective 1 - Average Change Over Time** 
-My analysis revealed interesting patterns in blood pressure changes that depend critically on model specification. In the basic model (Model 1), I found minimal average change over time (0.12 mmHg per year, not statistically significant). 
-However, when I added demographic covariates in Model 2, the time effect became significantly negative (-0.64 mmHg per year), suggesting blood pressure actually decreases over time when controlling for sex and age. So when I addressed multicollinearity by using baseline age instead of time-varying age (Model 3), the time effect returned to a small positive value similar to Model 1. 
-This suggests that apparent time trends can be confounded by age-time relationships, and careful model specification is crucial for accurate interpretation.
+**Research Objective 1 - Average Change Over Time** My analysis revealed interesting patterns in blood pressure changes that depend critically on model specification. In the basic model (Model 1), I found minimal average change over time (0.12 mmHg per year, not statistically significant). However, when I added demographic covariates in Model 2, the time effect became significantly negative (-0.64 mmHg per year), suggesting blood pressure actually decreases over time when controlling for sex and age. So when I addressed multicollinearity by using baseline age instead of time-varying age (Model 3), the time effect returned to a small positive value similar to Model 1. This suggests that apparent time trends can be confounded by age-time relationships, and careful model specification is crucial for accurate interpretation.
 
-**Research Objective 2 - Individual Variance and Predictors:** 
-Now, also I found substantial individual variation in both baseline blood pressure levels (σ = 14.3 mmHg for random intercepts) and rates of change over time (σ = 0.72 mmHg/year for random slopes). The likelihood ratio test strongly rejected the null hypothesis of no individual variation in trajectories (p < 0.001), confirming meaningful individual differences. 
-Sex and age explained some of this variance as females had 3.8 mmHg lower blood pressure than males, and each year of baseline age was associated with 0.75 mmHg higher blood pressure. Including these demographic variables reduced the random intercept variance from 203.7 to 170.7 mmHg², indicating they explained about 16% of between-person differences. However, substantial unexplained individual variation remained, with an ICC of approximately 0.56 showing that most variation was between rather than within individuals.
+**Research Objective 2 - Individual Variance and Predictors:** Now, also I found substantial individual variation in both baseline blood pressure levels (σ = 14.3 mmHg for random intercepts) and rates of change over time (σ = 0.72 mmHg/year for random slopes). The likelihood ratio test strongly rejected the null hypothesis of no individual variation in trajectories (p \< 0.001), confirming meaningful individual differences. Sex and age explained some of this variance as females had 3.8 mmHg lower blood pressure than males, and each year of baseline age was associated with 0.75 mmHg higher blood pressure. Including these demographic variables reduced the random intercept variance from 203.7 to 170.7 mmHg², indicating they explained about 16% of between-person differences. However, substantial unexplained individual variation remained, with an ICC of approximately 0.56 showing that most variation was between rather than within individuals.
 
-**Clinical and Methodological Implications:** 
-My findings also highlight several important considerations for blood pressure research and clinical practice like:
+**Clinical and Methodological Implications:** My findings also highlight several important considerations for blood pressure research and clinical practice like:
 
-1) The demographic effects I identified (sex differences and age relationships) align with the established cardiovascular research and suggest the importance of considering these factors in blood pressure management. 
-2) The substantial individual variation in trajectories supports the need for personalized monitoring approaches rather than assuming uniform age-related changes. 
+1)  The demographic effects I identified (sex differences and age relationships) align with the established cardiovascular research and suggest the importance of considering these factors in blood pressure management.
+2)  The substantial individual variation in trajectories supports the need for personalized monitoring approaches rather than assuming uniform age-related changes.
 
 Methodologically, I can say that my analysis demonstrated the critical importance of carefully handling age and time variables in longitudinal studies to avoid confounding, and the value of multilevel modeling for properly accounting for individual differences in trajectories.
 
-**Study Limitations:** 
-Now since, my analysis focused on the War Babies birth cohort (born 1942-1947), this actually, limits generalizability to other age groups or birth cohorts who may have different exposure histories. 
-The 4-year measurement intervals, while providing excellent long-term follow-up, I feel may miss shorter-term fluctuations or more complex non-linear patterns. 
-Additionally, unmeasured factors such as medication use, lifestyle changes, and comorbidities likely contribute to the substantial remaining individual variation in trajectories, suggesting areas for future research to better understand what drives individual differences in blood pressure patterns over time.
+**Study Limitations:** Now since, my analysis focused on the War Babies birth cohort (born 1942-1947), this actually, limits generalizability to other age groups or birth cohorts who may have different exposure histories. The 4-year measurement intervals, while providing excellent long-term follow-up, I feel may miss shorter-term fluctuations or more complex non-linear patterns. Additionally, unmeasured factors such as medication use, lifestyle changes, and comorbidities likely contribute to the substantial remaining individual variation in trajectories, suggesting areas for future research to better understand what drives individual differences in blood pressure patterns over time.
