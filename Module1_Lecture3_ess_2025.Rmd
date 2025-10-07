@@ -1,0 +1,307 @@
+---
+title: "Multilevel Modeling Application: Interviewer Effects in the European Social Survey"
+author: "Brady West / John Kubale"
+date: "9/16/2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+Required R packages!
+```{r, echo=TRUE}
+library(lme4)
+library(nlme)
+library(lmerTest)
+library(tidyverse)
+```
+
+User-defined functions:
+
+```{r, echo=TRUE}
+# Function to calculate LRT p-values for variances of random effects
+lrt.pvalue <- function(fit1, fit2) {
+  lrtstat <-
+    (-2 * as.numeric(summary(fit2)$logLik)) - (-2 * as.numeric(summary(fit1)$logLik))
+  pvalue = 0.5 * (1 - pchisq(lrtstat, 2)) + 0.5 * (1 - pchisq(lrtstat, 1))
+  return(pvalue)
+}
+```
+
+input data:
+
+```{r, echo=TRUE}
+load("X:\\Brady\\Teaching\\Applications of Statistical Modeling\\Fall 2014\\ess_belgium.rdata")
+```
+
+## First step: exploratory data analysis
+```{r, echo=TRUE}
+# variable names
+names(ess_belgium) 
+
+# missing data
+apply(is.na(ess_belgium), 2, sum) #note various coding options for missing data
+# look at the missing data by variable, e.g.,
+table(ess_belgium$pplhlp, useNA = 'always')
+summary(ess_belgium$intnum, useNA = 'always')
+```
+
+## Example: People’s Helpfulness. 
+
+```{r, echo=TRUE}
+# histogram
+hist(ess_belgium$pplhlp)
+```
+
+Item is a 10-point scale, measuring the attitude of the respondent with regard to people being helpful (10) or looking out for themselves (0).
+
+Spaghetti Plot: useful for longitudinal data. But what do we see here?
+```{r, echo=TRUE}
+
+#define base for the graphs and store in object 'p’ 
+p <- ggplot(ess_belgium, aes(x = trstplc, y = pplhlp, group = intnum, color = intnum))
+## just plotting points (a.k.a., scatterplot) 
+p + geom_point()
+## simple spaghetti plot 
+p + geom_line()
+```
+
+Interviewer Box Plots for a data subset with interviewer ID: intnum < 2000
+
+```{r, echo=TRUE}
+ess_sub=subset(ess_belgium,intnum < 2000)
+plot(ess_sub$pplhlp ~ factor(ess_sub$intnum)) 
+```
+
+Unequal Interviewer Workloads
+
+```{r, echo=TRUE}
+ess_belgium %>%
+  group_by(intnum) %>%
+  summarise(n = n())
+
+```
+We’ll begin with the following “unconditional” multilevel model, to estimate the raw variance:
+\[y_{ij}=\beta_0+\mu_{0j} + e_{ij}\]
+\[\mu_{0j} \sim N(0, \sigma_0^2)\]
+\[e_{ij} \sim N(0, \sigma^2).\]
+We can calculate the intra-interviewer correlation (ICC) “rho-int”:
+\[\rho_{int}=\frac{\sigma_0^2}{\sigma_0^2 + \sigma^2}\]
+
+```{r, echo=TRUE}
+mod1 = lmer(pplhlp ~ 1 + (1|intnum), REML = T, data = ess_belgium) 
+mod1
+summary(mod1)
+AIC(mod1)
+BIC(mod1)
+rand(mod1)
+```
+The DV comes first (pplhlp); no predictors aside from 1 indicates an intercept-only model;
+
+The (1|intnum) term indicates a random effect for each interviewer, associated with the intercept;
+
+REML = T: REML estimation (to ensure that estimates of the variance components are unbiased);
+
+summary(mod1) yields the initial estimates. We can use AIC/BIC to compare different models, such as mod1 vs. mod2.
+
+Initial Model: Interpretation
+
+1. The estimated mean (intercept) is      $\hat{\beta}_0$= 4.75
+
+2. The estimated variance of the random interviewer effects is     $\hat{\sigma}_0^2$ = 0.23
+
+3. The estimated residual variance is     $\hat{\sigma}^2$ = 3.79
+
+4. The estimated intra-interviewer correlation (or ICC) is       
+	$\hat{\rho}$ = 0.23 / (0.23 + 3.79) = 0.057 (relatively high for normal variables in a face-to-face survey!)
+	
+5. Perform the appropriate mixture-based likelihood ratio test for the variance component using the lmerTest package: rand(mod1). p < 0.0001!
+
+The model with the three estimated parameters is specified as
+
+\[y_{ij}=4.75+\mu_{0j} + e_{ij}\]
+\[\mu_{0j} \sim N(0, 0.23)\]
+\[e_{ij} \sim N(0, 3.79).\]
+
+## Initial Model: Diagnostics
+
+First, we consider a plot of the EBLUPs for the random interviewer effects:
+
+```{r, echo=TRUE}
+qqnorm(ranef(mod1)$intnum[,1])
+qqline(ranef(mod1)$intnum[,1]) 
+```
+
+An assumption of normality for the random effects seems reasonable (not critical for inference), and we don’t detect any extreme outliers (maybe some particularly low EBLUPs), but there is variance!
+
+Next, we check residuals; we could also examine studentized residuals, but for now we look at the raw residuals.
+```{r, echo=TRUE}
+	qqnorm(resid(mod1))
+	qqline(resid(mod1)) 
+```
+
+The residuals certainly look normally distributed, with no outliers. Diagnostics look good so far!
+
+## Explaining Interviewer Variance
+
+This initial model could be fitted to other variables to generate a distribution of ICCs (e.g., Groves and Magilavy 1986).
+
+An interesting question arises in studies of interviewer effects that can easily be answered using multilevel models: Why is there variance among interviewers? Could be due to sampling in this case.
+
+We can add interviewer-level covariates to the model and monitor changes in the interviewer variance component (like computing R-squared).
+
+In the ESS data set, we have the response rates for each interviewer (INT_RR).
+
+Do interviewers who are better at securing cooperation also collect different values on the variable of interest? If so, nonresponse bias is likely present for the mean!
+
+```{r, echo=TRUE}
+mod2 = lmer(pplhlp ~ int_rr + (1|intnum), REML = T, data = ess_belgium) 
+summary(mod2)
+AIC(mod2)
+BIC(mod2)
+```
+
+When using lmerTest, you now see p-values based on the Satterthwaite approximation!
+
+Note that the interviewer variance component has hardly changed, and actually increased!
+
+The interviewer-specific response rate is not associated with PPLHLP; note that the fixed effect of INT_RR is not different from zero.
+
+We have added noise to the model, seemingly, but:
+Are we sure that we’ve specified the INT_RR relationship correctly?
+
+No apparent evidence of nonresponse bias due to the interviewer for this variable; but what about other variables?
+
+Updated Diagnostics:
+
+Revisiting the diagnostic plots reveals no additional concerns.
+
+Diagnostics should be carefully examined after fitting each model!
+
+Recall that this general approach is referred to as a “step-up” approach to model-building, where the objective is to explain variance.
+
+## A Random Coefficients Example
+
+Far less research on interviewer effects has examined the effects of interviewers on regression coefficients and other statistics quantifying relationships between variables.
+
+What if we were interested in the relationship of trust in the police (TRSTPLC, X) with a person’s attitude about whether people generally try to help others (PPLHLP, Y)?
+
+We might consider this model, for estimating the overall relationship and examining whether the coefficient of interest varies across interviewers:
+
+\[y_{ij}=\beta_0+\beta_1x_{ij}+\mu_{0j}+\mu_{1j}x_{ij}+e_{ij}\]
+
+\[ \left(
+\begin{array}{c}
+    \mu_{0j}\\
+    \mu_{1j}
+\end{array} \right) \sim N\left(
+\left(
+\begin{array}{c}
+    0\\
+    0
+\end{array} \right), 
+\left(
+\begin{array}{cc}
+    \sigma_0^2&\sigma_{01}\\\
+    \sigma_{01}&\sigma_1^2
+\end{array} \right) \equiv D
+\right)
+\]
+
+\[e_{ij}\sim N(0, \sigma^2)\]
+
+We now include the TRSTPLC covariate, both after the dependent variable and in the random effects specification; this means that the effects of TRSTPLC are allowed to randomly vary across interviewers!
+
+A fixed intercept and random interviewer intercepts are also included by default in this case. The default covariance structure (D) for the two random effects is unstructured (when using the lmer() function). Do we have convergence issues?
+
+```{r, echo=TRUE}
+mod3 = lmer(pplhlp ~ trstplc + (trstplc|intnum), REML = T, data = ess_belgium) 
+summary(mod3)
+AIC(mod3)
+BIC(mod3)
+```
+
+
+We see that the overall fixed effect of TRSTPLC is positive and significant: those with higher levels of trust in the police tend to have higher levels of faith in people helping others. However, R is warning us about convergence issues.
+
+The lmer() function will only produce estimates of the variance components in the D matrix (along with their correlation, not the covariance).
+
+Let’s perform an appropriate likelihood ratio test, and test whether the variance of the random coefficients is significantly greater than zero:
+
+```{r, echo=TRUE}
+#Fit the model without the random coefficients:
+mod3a = lmer(pplhlp ~ trstplc + (1|intnum), REML = T, data = ess_belgium)
+summary(mod3a)
+
+#Compute the positive difference in the -2 REML log-likelihood values (“REML criterion”, -2 * summary(mod3a)$logLik) for the models:
+#Test Statistic = 7166.8 – 7143.3 = 23.5
+
+#Refer the TS to a mixture of Chi-square distributions with 1 and 2 DF, and equal weight 0.5: 
+
+0.5*(1-pchisq(23.5,1)) + 0.5*(1-pchisq(23.5,2))
+
+#p < 0.001 (strong evidence of variance in coefficients!)
+
+#or use the defined function
+
+# LRT of the variance of random slopes
+lrt.pvalue(mod3, mod3a)
+```
+
+The model with the six estimated parameters is specified as
+\[y_{ij}=3.89+0.14x_{ij}+\mu_{0j}+\mu_{1j}x_{ij}+e_{ij}\]
+
+\[ \left(
+\begin{array}{c}
+    \mu_{0j}\\
+    \mu_{1j}
+\end{array} \right) \sim N\left(
+\left(
+\begin{array}{c}
+    0\\
+    0
+\end{array} \right), 
+\left(
+\begin{array}{cc}
+    0.69&-0.07\\\
+    -0.07&0.01
+\end{array} \right) \equiv D
+\right)
+\]
+
+\[e_{ij}\sim N(0, 3.65).\]
+
+Here the covariance estimate can be computed as: $\hat{\sigma}_{01}=\hat{r}\hat{\sigma_0}\hat{\sigma_1}=(-0.82)*0.83*0.11=-0.07$
+
+## Diagnostics
+Let’s examine plots of the residuals:
+```{r, echo=TRUE}
+	qqnorm(resid(mod3))
+	qqline(resid(mod3)) 
+	plot(resid(mod3),fitted(mod3))
+```
+
+The plots show that assumptions of normality and constant variance for the residuals seem justified!
+
+Now, let’s look at plots of the EBLUPs for each random interviewer effect (based on the random coefficient model):
+```{r, echo=TRUE}
+	# intercepts
+	qqnorm(ranef(mod3)$intnum[,1])
+	qqline(ranef(mod3)$intnum[,1])
+	# slopes
+	qqnorm(ranef(mod3)$intnum[,2])
+	qqline(ranef(mod3)$intnum[,2])  
+```	
+
+Both plots look good, except some outliers:
+
+```{r, echo=TRUE}
+ess_belgium[ess_belgium$intnum==4976,]
+#trstprl=88
+ess_belgium[ess_belgium$intnum==7519,]
+```
+Interviewers 4976 (many responses < 4!) and 7519 (88, missing data! need to rerun the analysis...) seem unusual.
+
