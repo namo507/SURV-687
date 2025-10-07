@@ -99,8 +99,8 @@ lr15 <- anova(best_model_ml, model15_ml)
 print(lr15)
 
 # 4. Restoring REML for diagnostics on the chosen model
-preferred_model <- if (lr15$`Pr(>Chisq)`[2] < 0.05) best_model_reml 
-else update(best_model_reml, . ~ . - female)
+preferred_model <- if (lr15$`Pr(>Chisq)`[2] < 0.05) 
+best_model_reml else update(best_model_reml, . ~ . - female)
 
 # This will show residuals, random effects, QQ plots, etc.
 check_model(preferred_model, check = c("normality", 
