@@ -14,7 +14,8 @@ theme_set(theme_minimal())
 ```
 
 ```{r data-load}
-sust_eff <- readr::read_csv("/Users/namomac/Desktop/SURV-687/sust_eff.csv", show_col_types = FALSE)
+sust_eff <- readr::read_csv("/Users/namomac/Desktop/SURV-687/sust_eff.csv", 
+show_col_types = FALSE)
 glimpse(sust_eff)
 summary(select(sust_eff, math, female, minority, grade, lowinc_cen))
 ```
@@ -22,7 +23,8 @@ summary(select(sust_eff, math, female, minority, grade, lowinc_cen))
 # Question 13
 
 ```{r q13-model}
-model13 <- lmer(math ~ female + grade + lowinc_cen + minority + (1 | schoolid), data = sust_eff)
+model13 <- lmer(math ~ female + grade + lowinc_cen + minority 
++ (1 | schoolid), data = sust_eff)
 summary(model13)
 ```
 
@@ -43,7 +45,9 @@ Now, after controlling for grade, gender, and school income composition, minorit
 
 # Question 14
 ```{r q14-model}
-model14 <- lmer(math ~ female + grade + lowinc_cen + minority + (1 + minority | schoolid), data = sust_eff, control = lmerControl(optimizer = "bobyqa"))
+model14 <- lmer(math ~ female + grade + lowinc_cen + 
+minority + (1 + minority | schoolid), 
+data = sust_eff, control = lmerControl(optimizer = "bobyqa"))
 summary(model14)
 ```
 
@@ -95,10 +99,12 @@ lr15 <- anova(best_model_ml, model15_ml)
 print(lr15)
 
 # 4. Restoring REML for diagnostics on the chosen model
-preferred_model <- if (lr15$`Pr(>Chisq)`[2] < 0.05) best_model_reml else update(best_model_reml, . ~ . - female)
+preferred_model <- if (lr15$`Pr(>Chisq)`[2] < 0.05) best_model_reml 
+else update(best_model_reml, . ~ . - female)
 
 # This will show residuals, random effects, QQ plots, etc.
-check_model(preferred_model, check = c("normality", "linearity", "homoscedasticity", "outliers", "random_effects"))
+check_model(preferred_model, check = c("normality", 
+"linearity", "homoscedasticity", "outliers", "random_effects"))
 ```
 
 ## Model Comparison
