@@ -1,0 +1,104 @@
+---
+title: "Midterm Answers 13-16"
+author: "Namit Shrivastava"
+format: pdf
+---
+
+```{r setup}
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(broom.mixed)
+library(performance)
+theme_set(theme_minimal())
+```
+
+```{r data-load}
+sust_eff <- readr::read_csv("sust_eff.csv", show_col_types = FALSE)
+glimpse(sust_eff)
+summary(select(sust_eff, math, female, minority, grade, lowin_cen))
+```
+
+# Question 13
+
+Fit a multilevel model with `math` as the dependent variable, fixed effects for `female`, `grade`, `lowin_cen`, and `minority`, and a random intercept for `schoolid`.
+
+```{r q13-model}
+model13 <- lmer(math ~ female + grade + lowin_cen + minority + (1 | schoolid), data = sust_eff)
+summary(model13)
+```
+
+-My interpretation of the fixed effects in plain English is based on the fitted estimates above (note that `grade` is not centered, so the intercept corresponds to grade = 0, which sits just below the observed range and should be viewed as an extrapolated baseline):
+
+- The intercept of `r round(fixef(model13)["(Intercept)"], 2)` represents the expected math score for a male, non-minority student in the extrapolated baseline grade at a school with average centered low-income percentage.
+- The coefficient for `female` (`r round(fixef(model13)["female"], 2)`) reflects how, on average, female students score relative to male students when grade, minority status, and school low-income percentage are held constant.
+- The `grade` estimate (`r round(fixef(model13)["grade"], 2)`) captures how much the expected math score changes with each additional grade level, holding other variables constant.
+- The `lowin_cen` effect (`r round(fixef(model13)["lowin_cen"], 2)`) quantifies how math scores change as the centered percentage of low-income students at a school increases by one unit.
+- The `minority` coefficient (`r round(fixef(model13)["minority"], 2)`) indicates the average difference in math scores between minority and non-minority students after accounting for the other predictors.
+
+# Question 14
+
+Refit the model with a random slope for `minority` and test whether the variance of the random slopes differs from zero.
+
+```{r q14-model}
+model14 <- lmer(math ~ female + grade + lowin_cen + minority + (1 + minority | schoolid), data = sust_eff, control = lmerControl(optimizer = "bobyqa"))
+summary(model14)
+```
+
+```{r q14-test}
+model14_comp <- anova(model13, model14)
+model14_comp
+pvalue_q14 <- model14_comp$`Pr(>Chisq)`[2]
+df_q14 <- model14_comp$Df[2] - model14_comp$Df[1]
+list(p_value = pvalue_q14, df = df_q14)
+```
+
+The likelihood ratio test above produces a p-value of `r signif(pvalue_q14, 3)` on `r df_q14` degree(s) of freedom. I therefore `r ifelse(pvalue_q14 < 0.05, "reject", "do not reject")` the null hypothesis that the variance of the `minority` random slopes is zero. This decision guides which model I consider the better specification for subsequent questions.
+
+# Question 15
+
+Select the better model from Questions 13 and 14 (based on the test above) and refit it without the fixed effect of `female`. Compare model fit and examine diagnostics for the preferred model.
+
+```{r q15-models}
+best_model_reml <- if (pvalue_q14 < 0.05) model14 else model13
+best_model_ml <- update(best_model_reml, REML = FALSE)
+model15_ml <- update(best_model_ml, . ~ . - female)
+lr15 <- anova(model15_ml, best_model_ml)
+lr15
+pvalue_q15 <- lr15$`Pr(>Chisq)`[2]
+df_q15 <- lr15$Df[2] - lr15$Df[1]
+list(p_value = pvalue_q15, df = df_q15)
+```
+
+```{r q15-fit}
+preferred_model <- if (pvalue_q15 < 0.05) best_model_reml else update(best_model_reml, . ~ . - female)
+summary(preferred_model)
+```
+
+```{r q15-diagnostics, fig.height=4, fig.width=6}
+check_model(preferred_model)
+```
+
+The likelihood ratio comparison (χ²(`r df_q15`) = `r round(lr15$Chisq[2], 2)`, p = `r signif(pvalue_q15, 3)`) indicates that removing `female` results in a `r ifelse(pvalue_q15 < 0.05, "significant", "non-significant")` loss of fit. Because of this, I `r ifelse(pvalue_q15 < 0.05, "retain", "drop")` the `female` fixed effect in the preferred model for interpretation and diagnostics. The diagnostic plots suggest that the residuals are approximately normally distributed with no major pattern in the residual-versus-fitted plot, and the random effects appear reasonably symmetric, so the model assumptions seem appropriate.
+
+# Question 16
+
+Refit the preferred model, adding the interaction between `lowin_cen` and `minority`, and interpret whether the interaction explains variation in minority slopes across schools.
+
+```{r q16-model}
+model16_ml <- update(best_model_ml, . ~ . + lowin_cen:minority)
+lr16 <- anova(best_model_ml, model16_ml)
+lr16
+pvalue_q16 <- lr16$`Pr(>Chisq)`[2]
+df_q16 <- lr16$Df[2] - lr16$Df[1]
+list(p_value = pvalue_q16, df = df_q16)
+```
+
+```{r q16-fit}
+model16 <- update(best_model_reml, . ~ . + lowin_cen:minority)
+summary(model16)
+interaction_effect <- fixef(model16)["lowin_cen:minority"]
+pvalue_interaction <- summary(model16)$coef["lowin_cen:minority", "Pr(>|t|)"]
+```
+
+The interaction between `lowin_cen` and `minority` yields χ²(`r df_q16`) = `r round(lr16$Chisq[2], 2)` with p = `r signif(pvalue_q16, 3)`, so the interaction is `r ifelse(pvalue_q16 < 0.05, "statistically significant", "not statistically significant")` when added to the fixed effects. The estimated coefficient of `r round(interaction_effect, 3)` (t = `r round(summary(model16)$coef["lowin_cen:minority", "t value"], 2)`, df ≈ `r round(summary(model16)$coef["lowin_cen:minority", "df"], 1)`) indicates that for each one-unit increase in a school's centered low-income percentage, the difference in math scores between minority and non-minority students changes by approximately `r round(interaction_effect, 3)` points. Even when the interaction is not statistically significant, the direction and magnitude of the estimate still provide insight into how school context might moderate minority students' math performance relative to their peers.
